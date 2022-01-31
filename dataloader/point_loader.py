@@ -21,7 +21,13 @@ class PointLoader(Dataset):
         return np.shape(self.infos)[0]
 
     def __getitem__(self, idx):
-        raw_cloud = np.fromfile(self.infos[idx]['cloud']).reshape(-1, 3)
+        pd_cloud = pd.read_pickle(self.infos[idx]['cloud'])
+        # Use 360 lidar
+        pd_cloud = pd_cloud[pd_cloud.d == 0]
+        raw_cloud = pd_cloud.to_numpy()
+        # xyz values only
+        raw_cloud = raw_cloud[:, :3]
+
         sem2d = np.fromfile(self.infos[idx]['sem2d'])
         sem3d = np.fromfile(self.infos[idx]['sem3d'])
 
