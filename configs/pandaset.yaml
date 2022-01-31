@@ -1,6 +1,8 @@
 training_params: {
   lr: 0.001
   epochs: 50
+  voxel_size: 0.5
+  max_num_points: 20
 }
 
 sequences: {
