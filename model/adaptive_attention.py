@@ -75,3 +75,23 @@ class Model(nn.Module):
 
         # (batch) x voxel (ch = 1)
         return att_mask
+
+def fusion_voxels(raw_cloud, sem2d, sem3d, att_mask):
+    # a = 2d semantics * attention_mask
+    # b = 3d semantics * (1 - attention mask)
+    # c = concat -> raw cloud, b+a
+
+    att_mask = att_mask.unsqueeze(2).expand(-1, -1, sem2d.size(3))
+
+    # This approach assumes points inside voxels have the same class,
+    # which is not always true.
+    a = sem2d[:,:,0,:]
+    a = a*att_mask
+
+    b = sem3d[:,:,0,:]
+    b = b*(1 - att_mask)
+
+    aux = (b+a).unsqueeze(2).expand(-1,-1, raw_cloud.size(2), sem2d.size(3))
+    c = torch.cat((raw_cloud, aux), dim=3)
+
+    return c
