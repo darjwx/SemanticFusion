@@ -5,7 +5,7 @@ class PandasetDataset():
         self.split = split
 
     def set_split(self, split):
-        self.sequences = self.cfg.sequences[split]
+        self.sequences = self.cfg['sequences'][split]
         self.split = split
 
     def get_infos(self):
@@ -17,16 +17,17 @@ class PandasetDataset():
 
             info = [{'sequence': seq,
                      'frame_idx': idx,
-                     'cloud': os.path.join(self.cfg.paths.source, 'data', seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
-                     'sem2d': os.path.join(self.cfg.paths.sem2d, ("{}_{}.bin".format(seq, idx))),
-                     'sem3d': os.path.join(self.cfg.paths.sem3d, ("{}_{}.bin".format(seq, idx)))
+                     'cloud': os.path.join(self.cfg['paths']['source'], 'data', seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
+                     'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
+                     'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
+                     'gt': os.path.join(self.cfg['paths']['source'], 'data', seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
                     } for idx in range(len(s.lidar.data))]
             infos.extend(info)
 
         return infos
 
 def create_pandaset_infos(dataset_cfg, data_path, save_path):
-    dataset = PandasetDataset(dataset_cfg=dataset_cfg, root_path=data_path)
+    dataset = PandasetDataset(cfg=dataset_cfg, root_path=data_path)
     for split in ['train', 'val']:
         print("---------------- Start to generate {} data infos ---------------".format(split))
         dataset.set_split(split)
@@ -44,6 +45,11 @@ if __name__ == '__main__':
     import yaml
     import argparse
     import os
+    import sys
+    import pickle
+
+    sys.path.append('/home/darjimen/pandaset-devkit/python')
+    import pandaset as ps
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
@@ -57,5 +63,5 @@ if __name__ == '__main__':
     create_pandaset_infos(
         dataset_cfg=cfg,
         data_path=args.data_path,
-        save_path=args.save_path'
+        save_path=args.save_path
     )

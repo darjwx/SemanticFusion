@@ -7,24 +7,31 @@ class PointNet(nn.Module):
         super(PointNet, self).__init__()
         self.fc1 = nn.Linear(m, n)
         self.bn = nn.BatchNorm1d(n)
-        self.max = nn.MaxPool1d(k_size)
+
+        self.k_size = k_size
+        if self.k_size is not None:
+            self.max = nn.MaxPool1d(k_size)
 
     def forward(self, x):
         x = self.fc1(x)
         # BatchNorm expects batch x ch x voxel
         x = x.transpose(1,2)
-        x = self.max(F.relu(self.bn(x)))
+        if self.k_size is not None:
+            x = self.max(F.relu(self.bn(x)))
+        else:
+            max = nn.MaxPool1d(x.size(2))
+            x = max(F.relu(self.bn(x)))
         # Go back to normal shape
         x = x.transpose(1,2)
 
         return x
 
 class Model(nn.Module):
-    def __init__(self, m, num_points, num_voxels):
+    def __init__(self, m, num_points):
         super(Model, self).__init__()
         # PointNets
         self.pn1 = PointNet(m, 64, num_points)
-        self.pn2 = PointNet(64, 128, num_voxels)
+        self.pn2 = PointNet(64, 128, None)
 
         # Mlp
         # 192: 64+128 - local features + global features
@@ -81,7 +88,7 @@ def fusion_voxels(raw_cloud, sem2d, sem3d, att_mask):
     # b = 3d semantics * (1 - attention mask)
     # c = concat -> raw cloud, b+a
 
-    att_mask = att_mask.unsqueeze(2).expand(-1, -1, sem2d.size(3))
+    att_mask = att_mask.unsqueeze(2).expand(-1, -1, sem2d.size(3)).to('cpu')
 
     # This approach assumes points inside voxels have the same class,
     # which is not always true.
