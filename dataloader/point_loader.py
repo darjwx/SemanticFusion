@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 class PointLoader(Dataset):
-    def __init__(self, data, voxel_size, max_num_points):
+    def __init__(self, data, voxel_size, max_num_points, max_voxels):
 
         infos = []
         with open(data, 'rb') as f:
@@ -16,6 +16,7 @@ class PointLoader(Dataset):
 
         self.voxel_size = voxel_size
         self.max_num_points = max_num_points
+        self.max_voxels = max_voxels
 
     def __len__(self):
         return np.shape(self.infos)[0]
@@ -34,7 +35,7 @@ class PointLoader(Dataset):
         # Ground truth
         gt = pd.read_pickle(self.infos[idx]['gt']).to_numpy()
         gt = gt[pd_cloud.index].astype(np.uint8)
-        gt_onehot = F.one_hot(torch.from_numpy(gt).long(), num_classes=43)
+        gt_onehot = F.one_hot(torch.from_numpy(gt).long(), num_classes=43).squeeze(1)
 
 
         # Tensors
@@ -51,30 +52,13 @@ class PointLoader(Dataset):
         data = torch.cat((aux, sem3d_onehot), 1)
 
         # Filter data with voxels
-        ids = self.generate_voxels(raw_cloud)
-        aux_data = []
-        aux_sem2d = []
-        aux_sem3d = []
-        aux_cloud = []
-        aux_gt = []
-        for i in range(ids.shape[0]):
-            aux_data.append(data[ids[i]])
-            aux_cloud.append(raw_cloud_tensor[ids[i]])
-            aux_sem2d.append(sem2d_onehot[ids[i]])
-            aux_sem3d.append(sem3d_onehot[ids[i]])
-            aux_gt.append(gt_onehot[ids[i]])
+        input_data, input_gt = self.generate_voxels(raw_cloud, data, gt_onehot)
 
-        input_data = torch.stack(aux_data).float()
-        raw_cloud_tensor = torch.stack(aux_cloud).float()
-        sem2d_onehot = torch.stack(aux_sem2d).float()
-        sem3d_onehot = torch.stack(aux_sem3d).float()
-        gt_onehot = torch.stack(aux_gt).float()
-
-        train = {'input_data': input_data, 'raw_cloud': raw_cloud_tensor, 'sem2d': sem2d_onehot, 'sem3d': sem3d_onehot, 'gt': gt_onehot}
+        train = {'input_data': input_data, 'gt': input_gt}
 
         return train
 
-    def generate_voxels(self, pc):
+    def generate_voxels(self, pc, data, gt):
         # Obtain number of voxels in xy
         grid_size_x = np.floor(np.max(pc[:,0]) - np.min(pc[:,0]) / self.voxel_size).astype(int)
         grid_size_y = np.floor(np.max(pc[:,1]) - np.min(pc[:,1]) / self.voxel_size).astype(int)
@@ -82,8 +66,9 @@ class PointLoader(Dataset):
         # Grid mask
         min_x = np.min(pc[:,0])
         min_y = np.min(pc[:,1])
-        voxels = []
+        ids = []
 
+        # Tensor to numpy
         for i in range(grid_size_x):
             for j in range(grid_size_y):
                 amin_x = min_x + i*self.voxel_size
@@ -97,30 +82,56 @@ class PointLoader(Dataset):
                 mask = np.logical_and(mask, pc[:, 1] > amin_y)
                 mask = np.logical_and(mask, pc[:, 1] < amax_y)
 
-                voxels.append(np.nonzero(mask)[0])
+                ids.append(np.nonzero(mask)[0])
 
-        # Filter voxels
-        voxels = np.asarray(voxels, dtype=object)
-        aux_del = []
+        aux_data = []
+        aux_gt = []
+        data = data.numpy()
+        gt = gt.numpy()
+        for i in range(np.shape(ids)[0]):
+            aux_data.append(data[ids[i]])
+            aux_gt.append(gt[ids[i]])
+
+        voxels = np.asarray(aux_data, dtype=object)
+        voxels_gt = np.asarray(aux_gt, dtype=object)
+
+        empty = np.zeros((1,71))
+        empty_gt = np.zeros((1, 43))
         for i in range(voxels.shape[0]):
-            n = len(voxels[i])
+            n = voxels[i].shape[0]
             # Check if there are points in each voxel.
-            if n == 0:
-                aux_del.append(i)
-            # Filter with max points, if less append the last point until false
-            elif n < self.max_num_points:
-                while(len(voxels[i]) < self.max_num_points):
-                    voxels[i] = np.append(voxels[i], voxels[i][-1])
+            if n == 0 or n < self.max_num_points:
+                while voxels[i].shape[0] < self.max_num_points:
+                    voxels[i] = np.concatenate((voxels[i], empty))
+                    voxels_gt[i] = np.concatenate((voxels_gt[i], empty_gt))
             # If voxel exceeds max points, ignore those extra ones
             elif n > self.max_num_points:
-                voxels[i] = voxels[i][0:self.max_num_points]
+                rs = np.random.choice(voxels[i].shape[0], size=self.max_num_points, replace=False)
+                voxels[i] = voxels[i][rs,:]
+                voxels_gt[i] = voxels_gt[i][rs,:]
 
-        # Delete extra points
-        voxels = np.delete(voxels, aux_del, 0)
+        # Filter voxels
+        # Max number of voxels
+        if voxels.shape[0] > self.max_voxels:
+            # Random sampling
+            rs = np.random.choice(voxels.shape[0], size=self.max_voxels, replace=False)
+            voxels = voxels[rs]
+            voxels_gt = voxels_gt[rs]
+        elif voxels.shape[0] < self.max_voxels:
+            # Add empty voxels
+            empty = np.zeros(voxels[0].shape)
+            empty_gt = np.zeros(voxels_gt[0].shape)
+            while voxels.shape[0] < max_voxels:
+                voxels = np.concatenate((voxels, empty))
+                voxels_gt = np.concatenate((voxels_gt, empty_gt))
 
-        # With returned ids, final shape can be built.
         # Final shape: Voxel x [xyz, sem2d, sem3d],
         #                      [xyz, sem2d, sem3d],
         #                      [xyz, sem2d, sem3d]
 
-        return voxels
+        # [n,] to [n,p,c]
+        # object to float32
+        voxels = np.rollaxis(np.dstack(voxels), -1).astype(np.float32)
+        voxels_gt = np.rollaxis(np.dstack(voxels_gt), -1).astype(np.float32)
+
+        return torch.from_numpy(voxels), torch.from_numpy(voxels_gt)

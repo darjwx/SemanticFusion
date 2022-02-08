@@ -1,9 +1,10 @@
 training_params:
   lr: 0.001
   epochs: 50
-  batch_size: 1
+  batch_size: 10
   voxel_size: 0.5
   max_num_points: 20
+  max_voxels: 60000
   input_size: 71 #xyz + num classes
   num_classes: 34
 

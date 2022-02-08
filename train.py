@@ -46,25 +46,27 @@ epochs = cfg['training_params']['epochs']
 batch_size = cfg['training_params']['batch_size']
 voxel_size = cfg['training_params']['voxel_size']
 max_num_points = cfg['training_params']['max_num_points']
+max_voxels = cfg['training_params']['max_voxels']
 input_size = cfg['training_params']['input_size']
 num_classes = cfg['training_params']['num_classes']
 data = cfg['paths']['data_train']
 
-model = Model(input_size, max_num_points)
+model = Model(input_size, max_num_points, max_voxels)
 model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
-dataset_train = PointLoader(data, voxel_size, max_num_points)
+dataset_train = PointLoader(data, voxel_size, max_num_points, max_voxels)
 trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=0)
 
 print('Training')
 for epoch in tqdm(range(epochs)):
     for i, d in enumerate(trainloader):
         input = d['input_data'].to(device)
-        raw_cloud = d['raw_cloud']
-        sem2d = d['sem2d']
-        sem3d = d['sem3d']
-        gt = d['gt']
+        gt = d['gt'].to(device)
+        raw_cloud = input[:,:,:,:3]
+        sem2d = input[:,:,:,3:num_classes+3]
+        sem3d = input[:,:,:,num_classes+2:-1]
+
         att_mask = model(input)
 
         f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
@@ -82,9 +84,10 @@ for epoch in tqdm(range(epochs)):
         with torch.no_grad():
             for data in valloader:
                 input = d['input_data'].to(device)
-                raw_cloud = d['raw_cloud']
-                sem2d = d['sem2d']
-                sem3d = d['sem3d']
+                gt = d['gt'].to(device)
+                raw_cloud = input[:,:,:,:3]
+                sem2d = input[:,:,:,3:num_classes+3]
+                sem3d = input[:,:,:,num_classes+2:-1]
                 att_mask = model(input_data)
 
                 f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
