@@ -49,14 +49,18 @@ max_num_points = cfg['training_params']['max_num_points']
 max_voxels = cfg['training_params']['max_voxels']
 input_size = cfg['training_params']['input_size']
 num_classes = cfg['training_params']['num_classes']
-data = cfg['paths']['data_train']
+data_train = cfg['paths']['data_train']
+data_val = cfg['paths']['data_val']
 
 model = Model(input_size, max_num_points, max_voxels)
 model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
-dataset_train = PointLoader(data, voxel_size, max_num_points, max_voxels)
+dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels)
+dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels)
+
 trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=0)
+valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=0)
 
 print('Training')
 for epoch in tqdm(range(epochs)):

@@ -18,3 +18,4 @@ paths:
   sem2d: 'datasets/pandaset/sem2d'
   sem3d: 'datasets/pandaset/sem3d'
   data_train: 'datasets/pandaset/out/pandaset_infos_train.pkl'
+  data_val: 'datasets/pandaset/out/pandaset_infos_val.pkl'
