@@ -1,3 +1,13 @@
+import yaml
+import argparse
+import os
+import sys
+import pickle
+from tqdm import tqdm
+
+sys.path.append('/home/darjimen/pandaset-devkit/python')
+import pandaset as ps
+
 class PandasetDataset():
     def __init__(self, cfg, split='train', root_path=None):
         self.cfg = cfg
@@ -42,15 +52,6 @@ def create_pandaset_infos(dataset_cfg, data_path, save_path):
 
 
 if __name__ == '__main__':
-    import yaml
-    import argparse
-    import os
-    import sys
-    import pickle
-
-    sys.path.append('/home/darjimen/pandaset-devkit/python')
-    import pandaset as ps
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
     parser.add_argument('--data_path', type=str, default='datasets/pandaset/data', help='Data path')
