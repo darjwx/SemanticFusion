@@ -39,12 +39,10 @@ class Model(nn.Module):
         # x: (batch) x voxel x points x ch
         x1 = []
         # Mlp at voxel level
-        for i in range(x.size(1)):
-            x1.append(self.pn1(x[:,i]).squeeze(1))
+        for i in range(x.size(0)):
+            x1.append(self.pn1(x[i]).squeeze(1))
         # List -> tensor
         x1 = torch.stack(x1)
-        # voxel x batch -> batch x voxel
-        x1 = x1.transpose(0,1)
 
         # (batch) x voxel x ch
         x2 = self.pn2(x1).squeeze(1)
