@@ -33,9 +33,9 @@ class PointLoader(Dataset):
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
         sem3d = np.fromfile(self.infos[idx]['sem3d']).astype(np.uint8)
-        sem2d_onehot = np.zeros((sem2d.shape[0], self.num_classes+1))
+        sem2d_onehot = np.zeros((sem2d.shape[0], self.num_classes))
         sem2d_onehot[np.arange(sem2d.shape[0]),sem2d] = 1
-        sem3d_onehot = np.zeros((sem3d.shape[0], self.num_classes+1))
+        sem3d_onehot = np.zeros((sem3d.shape[0], self.num_classes))
         sem3d_onehot[np.arange(sem3d.shape[0]),sem3d] = 1
 
         # Concat vectors
@@ -45,7 +45,8 @@ class PointLoader(Dataset):
         # Ground truth
         gt = pd.read_pickle(self.infos[idx]['gt']).to_numpy()
         gt = gt[pd_cloud.index].astype(np.uint8).reshape(-1)
-        gt_onehot = np.zeros((gt.shape[0], self.num_classes+1))
+
+        gt_onehot = np.zeros((gt.shape[0], self.num_classes))
         gt_onehot[np.arange(gt.shape[0]),gt] = 1
 
         # Filter data with voxels
@@ -71,10 +72,18 @@ class PointLoader(Dataset):
         grid_size_y = np.floor((np.max(data[:,1]) - np.min(data[:,1])) / self.voxel_size).astype(int)
         grid_size = [grid_size_x+1, grid_size_y+1]
 
+        # Compare the number of voxels with max allowed.
+        # If it is higher, use it.
+        if grid_size[0]*grid_size[1] > self.max_voxels:
+            n_voxels = grid_size[0]*grid_size[1]
+        # If it is lower use max number.
+        else:
+            n_voxels = self.max_voxels
+
         voxelgrid = -np.ones(grid_size, dtype=np.int32)
-        voxels = np.zeros((grid_size_x*grid_size_y, self.max_num_points, self.input_size))
-        voxels_gt = np.zeros((grid_size_x*grid_size_y, self.max_num_points, 43))
-        num_points = np.zeros(grid_size_x*grid_size_y, dtype=np.int32)
+        voxels = np.zeros((n_voxels, self.max_num_points, self.input_size))
+        voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes))
+        num_points = np.zeros(n_voxels, dtype=np.int32)
         num_voxels = 0
         for i in range(data.shape[0]):
             # Transform coords to voxel space
@@ -89,10 +98,11 @@ class PointLoader(Dataset):
                 voxels_gt[voxelid, num_points[voxelid]] = gt[i]
                 num_points[voxelid] += 1
 
-        # Choose voxels randomly according to max number
-        rs = np.random.choice(voxels.shape[0], size=self.max_voxels, replace=False)
-        voxels = voxels[rs]
-        voxels_gt = voxels_gt[rs]
+        # If the number of voxels exceeds max allowed, use random sampling.
+        if voxels.shape[0] > self.max_voxels:
+            rs = np.random.choice(voxels.shape[0], size=self.max_voxels, replace=False)
+            voxels = voxels[rs]
+            voxels_gt = voxels_gt[rs]
 
         # Final shape: Voxel x [xyz, sem2d, sem3d],
         #                      [xyz, sem2d, sem3d],
