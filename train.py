@@ -6,28 +6,12 @@ torch.manual_seed(1)
 from torch.utils.data import DataLoader
 import torch.optim as optim
 
+from utils.build_loss import build_loss
+
 import yaml
 import argparse
 import os
 from tqdm import tqdm
-
-def build_loss(fusion, gt, num_classes, weights=None):
-
-    labels_train = fusion[:, :, 0, 3:num_classes+3]
-
-    gt = gt.squeeze(3)
-    gt = gt[:, :, 0, 0:num_classes]
-    _, labels_gt = torch.max(gt, dim=2)
-
-    if weights is not None:
-        loss = nn.CrossEntropyLoss(weight=weights, ignore_index=0)
-    else:
-        loss = nn.CrossEntropyLoss(ignore_index=0)
-
-    l = 0
-    for i in range(labels_train.size(0)):
-        l += loss(labels_train.view(-1, num_classes).float(), labels_gt.view(-1))
-    return l
 
 def main():
     parser = argparse.ArgumentParser()
