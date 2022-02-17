@@ -91,6 +91,7 @@ class PointLoader(Dataset):
             voxelid = voxelgrid[cv[0], cv[1]]
             if voxelid == -1:
                 voxelid = num_voxels
+                voxelgrid[cv[0], cv[1]] = num_voxels
                 num_voxels += 1
 
             if num_points[voxelid] < self.max_num_points:
