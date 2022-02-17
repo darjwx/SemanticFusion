@@ -68,8 +68,8 @@ class PointLoader(Dataset):
         miny = np.min(data[:,1])
         minxy = [minx, miny]
 
-        grid_size_x = np.floor((np.max(data[:,0]) - np.min(data[:,0])) / self.voxel_size).astype(int)
-        grid_size_y = np.floor((np.max(data[:,1]) - np.min(data[:,1])) / self.voxel_size).astype(int)
+        grid_size_x = np.floor((np.max(data[:,0]) - np.min(data[:,0])) / self.voxel_size[0]).astype(int)
+        grid_size_y = np.floor((np.max(data[:,1]) - np.min(data[:,1])) / self.voxel_size[1]).astype(int)
         grid_size = [grid_size_x+1, grid_size_y+1]
 
         # Compare the number of voxels with max allowed.
