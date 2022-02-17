@@ -83,7 +83,6 @@ def main():
             #Loss
             train_loss = build_loss(f, gt, num_classes)
 
-            optimizer.zero_grad()
             train_loss.backward()
             optimizer.step()
 
@@ -93,6 +92,7 @@ def main():
                 print('Training, epoch {}, loss {}'.format(epoch, rloss/50))
                 rloss = 0.0
 
+            optimizer.zero_grad()
             pbar.update(1)
         pbar.close()
 
