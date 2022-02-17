@@ -59,12 +59,16 @@ def main():
     dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes)
     dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes)
 
-    trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=0)
-    valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=0)
+    trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=4)
+    valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
 
     print('Training')
-    for epoch in tqdm(range(epochs)):
+    for epoch in range(epochs):
+        print('-------- Epoch {} --------'.format(epoch))
+        pbar = tqdm(total=len(trainloader))
+
         model.train()
+        rloss = 0.0
         for i, d in enumerate(trainloader):
             input = d['input_data'].to(device)
             gt = d['gt'].to(device)
@@ -78,15 +82,24 @@ def main():
 
             #Loss
             train_loss = build_loss(f, gt, num_classes)
-            print('Train loss: {}'.format(train_loss))
 
             optimizer.zero_grad()
             train_loss.backward()
             optimizer.step()
 
-        print('Training, epoch {}, loss {}'.format(epoch, train_loss))
-        if epoch % 4 == 0:
+            rloss += train_loss.item()
+
+            if i %50 == 0 and i != 0:
+                print('Training, epoch {}, loss {}'.format(epoch, rloss/50))
+                rloss = 0.0
+
+            pbar.update(1)
+        pbar.close()
+
+        if epoch % 10 == 0:
+            print('validating epoch {}'.format(epoch))
             model.eval()
+            rloss_val = 0.0
             with torch.no_grad():
                 for data in valloader:
                     input = d['input_data'].to(device)
@@ -100,9 +113,10 @@ def main():
 
                     #Loss
                     val_loss = build_loss(f, gt, num_classes)
-                    print('Validation loss: {}'.format(val_loss))
+                    rloss_val += val_loss.item()
 
-                print('Validation loss in epoch {}: {}'.format(epoch, val_loss))
+                print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
+                rloss_val = 0.0
 
 if __name__ == '__main__':
     main()
