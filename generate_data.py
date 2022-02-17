@@ -3,7 +3,6 @@ import argparse
 import os
 import sys
 import pickle
-from tqdm import tqdm
 
 sys.path.append('/home/darjimen/pandaset-devkit/python')
 import pandaset as ps
@@ -27,10 +26,10 @@ class PandasetDataset():
 
             info = [{'sequence': seq,
                      'frame_idx': idx,
-                     'cloud': os.path.join(self.cfg['paths']['source'], 'data', seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
+                     'cloud': os.path.join(self.cfg['paths']['source'], seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
-                     'gt': os.path.join(self.cfg['paths']['source'], 'data', seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
+                     'gt': os.path.join(self.cfg['paths']['source'], seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
                     } for idx in range(len(s.lidar.data))]
             infos.extend(info)
 
