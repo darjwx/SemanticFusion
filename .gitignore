@@ -3,3 +3,6 @@ datasets/
 
 # Python
 __pycache__/
+
+# Generated files during training
+/out
