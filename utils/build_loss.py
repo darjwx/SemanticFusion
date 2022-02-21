@@ -6,15 +6,18 @@ def build_loss(fusion, gt, num_classes, weights=None):
 
     labels_train = fusion[:, :, 0, 3:num_classes+3]
     labels_gt = gt[:, :, 0, :]
-    _, labels_gt = torch.max(labels_gt, dim=2)
 
     if weights is not None:
-        cross_loss = nn.CrossEntropyLoss(weight=weights, ignore_index=0)
+        bce = nn.BCELoss(weight=weights)
     else:
-        cross_loss = nn.CrossEntropyLoss(ignore_index=0)
+        bce = nn.BCELoss()
 
-    lovasz = lovasz_softmax(nn.functional.softmax(labels_train, dim=1), labels_gt, ignore=0)
+    bce_loss = bce(labels_train.view(-1, num_classes), labels_gt.view(-1, num_classes))
 
-    l = cross_loss(labels_train.view(-1, num_classes).float(), labels_gt.view(-1)) + lovasz
+    # Onehot -> class indices
+    _, labels_gt = torch.max(labels_gt, dim=2)
+    lovasz = lovasz_softmax(labels_train, labels_gt, ignore=0)
+
+    l = lovasz + bce_loss
 
     return l
