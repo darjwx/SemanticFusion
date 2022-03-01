@@ -33,7 +33,10 @@ class PointLoader(Dataset):
         raw_cloud = raw_cloud[:, :3]
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
-        sem3d = np.fromfile(self.infos[idx]['sem3d']).astype(np.uint8)
+        sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.uint8).reshape(-1, 2)
+        # Files contain scores too, we only want classes
+        sem3d = sem3d[:,0]
+
         sem2d_onehot = np.zeros((sem2d.shape[0], self.num_classes))
         sem2d_onehot[np.arange(sem2d.shape[0]),sem2d] = 1
         sem3d_onehot = np.zeros((sem3d.shape[0], self.num_classes))
@@ -45,7 +48,7 @@ class PointLoader(Dataset):
 
         # Ground truth
         gt = pd.read_pickle(self.infos[idx]['gt']).to_numpy()
-        gt = gt[pd_cloud.index].astype(np.uint8).reshape(-1)
+        gt = gt[pd_cloud.index].astype(np.uint8).squeeze(1)
 
         gt_onehot = np.zeros((gt.shape[0], self.num_classes))
         gt_onehot[np.arange(gt.shape[0]),gt] = 1
