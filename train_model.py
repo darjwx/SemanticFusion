@@ -33,6 +33,7 @@ def main():
     max_voxels = cfg['training_params']['max_voxels']
     input_size = cfg['training_params']['input_size']
     num_classes = cfg['training_params']['num_classes']
+    pc_range = cfg['training_params']['pc_range']
     data_train = cfg['paths']['data_train']
     data_val = cfg['paths']['data_val']
 
@@ -40,8 +41,8 @@ def main():
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
-    dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes)
-    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes)
+    dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range)
+    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range)
 
     trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=4)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)

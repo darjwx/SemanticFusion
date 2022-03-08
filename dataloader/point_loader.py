@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 class PointLoader(Dataset):
-    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size, num_classes):
+    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range):
 
         infos = []
         with open(data, 'rb') as f:
@@ -20,6 +20,7 @@ class PointLoader(Dataset):
         self.max_voxels = max_voxels
         self.input_size = input_size
         self.num_classes = num_classes
+        self.pc_range = pc_range
 
     def __len__(self):
         return np.shape(self.infos)[0]
@@ -68,18 +69,18 @@ class PointLoader(Dataset):
         # data: [x,y,z,sem2d,sem3d]
         # gt: [gt sem]
         # Obtain number of voxels in xy
-        minx = np.min(data[:,0])
-        miny = np.min(data[:,1])
-        minxy = [minx, miny]
+        minxyz = [self.pc_range[0], self.pc_range[2], self.pc_range[4]]
 
-        grid_size_x = np.floor((np.max(data[:,0]) - np.min(data[:,0])) / self.voxel_size[0]).astype(int)
-        grid_size_y = np.floor((np.max(data[:,1]) - np.min(data[:,1])) / self.voxel_size[1]).astype(int)
-        grid_size = [grid_size_x+1, grid_size_y+1]
+        grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
+        grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
+        grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
+
+        grid_size = [grid_size_x, grid_size_y, grid_size_z]
 
         # Compare the number of voxels with max allowed.
         # If it is higher, use it.
-        if grid_size[0]*grid_size[1] > self.max_voxels:
-            n_voxels = grid_size[0]*grid_size[1]
+        if grid_size[0]*grid_size[1]*grid_size[2] > self.max_voxels:
+            n_voxels = grid_size[0]*grid_size[1]*grid_size[2]
         # If it is lower use max number.
         else:
             n_voxels = self.max_voxels
@@ -88,16 +89,24 @@ class PointLoader(Dataset):
         voxels = np.zeros((n_voxels, self.max_num_points, self.input_size))
         voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes))
         num_points = np.zeros(n_voxels, dtype=np.int32)
+
         num_voxels = 0
         for i in range(data.shape[0]):
             # Transform coords to voxel space
-            cv = np.floor((data[i,:2] - minxy) / self.voxel_size).astype(int)
-            voxelid = voxelgrid[cv[0], cv[1]]
+            cv = np.floor((data[i,:3] - minxyz) / self.voxel_size).astype(int)
+
+            # Ignore points outside of range
+            if np.any(cv < minxyz) or np.any(cv >= grid_size):
+                continue
+
+            voxelid = voxelgrid[cv[0], cv[1], cv[2]]
+            # Case 1: new voxel
             if voxelid == -1:
                 voxelid = num_voxels
-                voxelgrid[cv[0], cv[1]] = num_voxels
+                voxelgrid[cv[0], cv[1], cv[2]] = num_voxels
                 num_voxels += 1
 
+            # Case 2: existing voxel, check current number of points
             if num_points[voxelid] < self.max_num_points:
                 voxels[voxelid, num_points[voxelid]] = data[i]
                 voxels_gt[voxelid, num_points[voxelid]] = gt[i]

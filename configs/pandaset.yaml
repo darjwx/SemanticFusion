@@ -1,12 +1,13 @@
 training_params:
   lr: 0.001
-  epochs: 50
-  batch_size: 10
-  voxel_size: [0.5, 0.5] #x, y. Pillars, z can have any value
-  max_num_points: 20
-  max_voxels: 60000
-  input_size: 71 #xyz + num classes
-  num_classes: 34
+  epochs: 15
+  batch_size: 2
+  voxel_size: [0.2, 0.2, 0.2] #x, y, z
+  max_num_points: 10
+  max_voxels: 25000
+  input_size: 31 #xyz + num classes
+  num_classes: 14
+  pc_range: [-50, 50, -50, 50, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
 
 sequences:
   train: ['035', '052', '105', '030', '113', '002', '084', '028', '119', '044', '005', '102', '034', '077', '064', '067', '058', '019', '015', '037', '095', '120', '066', '023', '071', '117', '098', '139', '038', '116', '046', '088', '089', '040', '033', '016', '024', '122', '039', '158', '069', '124', '123', '106'] # ~60% of the sequences, randomly chosen
