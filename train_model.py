@@ -114,5 +114,9 @@ def main():
                 print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
                 rloss_val = 0.0
 
+    # Save model
+    print('Saving model')
+    torch.save(model.state_dict(), 'out/pandaset/models/model-save.pt')
+
 if __name__ == '__main__':
     main()
