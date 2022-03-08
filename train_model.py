@@ -86,7 +86,7 @@ def main():
             pbar.update(1)
         pbar.close()
 
-        if epoch % 10 == 0:
+        if epoch % 10 == 0 and epoch != 0:
             print('validating epoch {}'.format(epoch))
             model.eval()
             rloss_val = 0.0
