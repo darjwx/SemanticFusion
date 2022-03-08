@@ -58,7 +58,7 @@ def main():
             gt = d['gt'].to(device)
             raw_cloud = input[:,:,:,:3]
             sem2d = input[:,:,:,3:num_classes+3]
-            sem3d = input[:,:,:,num_classes+2:-1]
+            sem3d = input[:,:,:,num_classes+3:input_size]
 
             # Ignore preds that will never match gt
             _, labels_gt = torch.max(gt, dim=3)
@@ -96,7 +96,7 @@ def main():
                     gt = d['gt'].to(device)
                     raw_cloud = input[:,:,:,:3]
                     sem2d = input[:,:,:,3:num_classes+3]
-                    sem3d = input[:,:,:,num_classes+2:-1]
+                    sem3d = input[:,:,:,num_classes+3:input_size]
                     att_mask = model(input)
 
                     # Ignore preds that will never match gt
