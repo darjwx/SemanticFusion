@@ -60,12 +60,18 @@ def main():
             sem2d = input[:,:,:,3:num_classes+3]
             sem3d = input[:,:,:,num_classes+2:-1]
 
+            # Ignore preds that will never match gt
+            _, labels_gt = torch.max(gt, dim=3)
+            _, labels2d = torch.max(sem2d, dim=3)
+            _, labels3d = torch.max(sem3d, dim=3)
+            idx = torch.logical_or((labels2d == labels_gt), (labels3d == labels_gt))
+
             att_mask = model(input)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
             #Loss
-            train_loss = build_loss(f, gt, num_classes)
+            train_loss = build_loss(f, gt, num_classes, idx)
 
             train_loss.backward()
             optimizer.step()
@@ -93,10 +99,16 @@ def main():
                     sem3d = input[:,:,:,num_classes+2:-1]
                     att_mask = model(input)
 
+                    # Ignore preds that will never match gt
+                    _, labels_gt = torch.max(gt, dim=3)
+                    _, labels2d = torch.max(sem2d, dim=3)
+                    _, labels3d = torch.max(sem3d, dim=3)
+                    idx = torch.logical_or((labels2d == labels_gt), (labels3d == labels_gt))
+
                     f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
                     #Loss
-                    val_loss = build_loss(f, gt, num_classes)
+                    val_loss = build_loss(f, gt, num_classes, idx)
                     rloss_val += val_loss.item()
 
                 print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
