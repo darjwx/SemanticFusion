@@ -150,7 +150,7 @@ def binary_xloss(logits, labels, ignore=None):
 # --------------------------- MULTICLASS LOSSES ---------------------------
 
 
-def lovasz_softmax(probas, labels, classes='present', per_image=False, ignore=None):
+def lovasz_softmax(probas, labels, classes='present', per_image=False, idx=None, ignore=None):
     """
     Multi-class Lovasz-Softmax loss
       probas: [B, C, H, W] Variable, class probabilities at each prediction (between 0 and 1).
@@ -161,10 +161,10 @@ def lovasz_softmax(probas, labels, classes='present', per_image=False, ignore=No
       ignore: void class labels
     """
     if per_image:
-        loss = mean(lovasz_softmax_flat(*flatten_probas(prob.unsqueeze(0), lab.unsqueeze(0), ignore), classes=classes)
+        loss = mean(lovasz_softmax_flat(*flatten_probas(prob.unsqueeze(0), lab.unsqueeze(0), idx, ignore), classes=classes)
                           for prob, lab in zip(probas, labels))
     else:
-        loss = lovasz_softmax_flat(*flatten_probas(probas, labels, ignore), classes=classes)
+        loss = lovasz_softmax_flat(*flatten_probas(probas, labels, idx, ignore), classes=classes)
     return loss
 
 
@@ -199,7 +199,7 @@ def lovasz_softmax_flat(probas, labels, classes='present'):
     return mean(losses)
 
 
-def flatten_probas(probas, labels, ignore=None):
+def flatten_probas(probas, labels, idx=None, ignore=None):
     """
     Flattens predictions in the batch
     """
@@ -209,15 +209,20 @@ def flatten_probas(probas, labels, ignore=None):
     #    probas = probas.view(B, 1, H, W)
     #B, C, H, W = probas.size()
     #probas = probas.permute(0, 2, 3, 1).contiguous().view(-1, C)  # B * H * W, C = P, C
-    B, V, C = probas.size()
+    B, V, P, C = probas.size()
     probas = probas.view(-1, C)
     labels = labels.view(-1)
-    if ignore is None:
-        return probas, labels
-    valid = (labels != ignore)
-    vprobas = probas[valid.nonzero().squeeze()]
-    vlabels = labels[valid]
-    return vprobas, vlabels
+
+    if idx is not None:
+        probas = probas[idx.view(-1)]
+        labels = labels[idx.view(-1)]
+
+    if ignore is not None:
+        valid = (labels != ignore)
+        probas = probas[valid.nonzero().squeeze()]
+        labels = labels[valid]
+
+    return probas, labels
 
 def xloss(logits, labels, ignore=None):
     """
