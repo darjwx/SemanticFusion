@@ -24,6 +24,13 @@ class PointLoader(Dataset):
         self.gt_map = gt_map
         self.sem_map = sem_map
 
+        # Voxels variables
+        self.minxyz = np.array([self.pc_range[0], self.pc_range[2], self.pc_range[4]]).astype(int)
+        self.grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
+        self.grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
+        self.grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
+        self.grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
+
     def __len__(self):
         return np.shape(self.infos)[0]
 
@@ -77,23 +84,16 @@ class PointLoader(Dataset):
         # data: [x,y,z,sem2d,sem3d]
         # gt: [gt sem]
         # Obtain number of voxels in xy
-        minxyz = [self.pc_range[0], self.pc_range[2], self.pc_range[4]]
-
-        grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
-        grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
-        grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
-
-        grid_size = [grid_size_x, grid_size_y, grid_size_z]
 
         # Compare the number of voxels with max allowed.
         # If it is higher, use it.
-        if grid_size[0]*grid_size[1]*grid_size[2] > self.max_voxels:
-            n_voxels = grid_size[0]*grid_size[1]*grid_size[2]
+        if self.grid_size[0]*self.grid_size[1]*self.grid_size[2] > self.max_voxels:
+            n_voxels = self.grid_size[0]*self.grid_size[1]*self.grid_size[2]
         # If it is lower use max number.
         else:
             n_voxels = self.max_voxels
 
-        voxelgrid = -np.ones(grid_size, dtype=np.int32)
+        voxelgrid = -np.ones(self.grid_size, dtype=np.int32)
         voxels = np.zeros((n_voxels, self.max_num_points, self.input_size))
         voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes))
         num_points = np.zeros(n_voxels, dtype=np.int32)
@@ -101,10 +101,10 @@ class PointLoader(Dataset):
         num_voxels = 0
         for i in range(data.shape[0]):
             # Transform coords to voxel space
-            cv = np.floor((data[i,:3] - minxyz) / self.voxel_size).astype(int)
+            cv = np.floor((data[i,:3] - self.minxyz) / self.voxel_size).astype(int)
 
             # Ignore points outside of range
-            if np.any(cv < minxyz) or np.any(cv >= grid_size):
+            if np.any(cv < self.minxyz) or np.any(cv >= self.grid_size):
                 continue
 
             voxelid = voxelgrid[cv[0], cv[1], cv[2]]
@@ -120,11 +120,23 @@ class PointLoader(Dataset):
                 voxels_gt[voxelid, num_points[voxelid]] = gt[i]
                 num_points[voxelid] += 1
 
-        # If the number of voxels exceeds max allowed, use random sampling.
-        if voxels.shape[0] > self.max_voxels:
-            rs = np.random.choice(voxels.shape[0], size=self.max_voxels, replace=False)
-            voxels = voxels[rs]
-            voxels_gt = voxels_gt[rs]
+        # If the number of non-empty voxels exceeds max allowed, use random sampling.
+        if num_points.nonzero()[0].shape[0] > self.max_voxels:
+            # Prioratize voxels with more points
+            idx = num_points.nonzero()[0] # Non zero voxels
+            idx = np.argsort(idx)[::-1] # Sorted ids
+            voxels = voxels[idx[0:self.max_voxels]]
+            voxels_gt = voxels_gt[idx[0:self.max_voxels]]
+        else:
+            idx = num_points.nonzero()[0]
+            inv_idx = np.nonzero(num_points == 0)[0]
+
+            # Zero padding needed
+            pd = self.max_voxels - idx.shape[0]
+            idx = np.append(idx, inv_idx[0:pd])
+
+            voxels = voxels[np.sort(idx)]
+            voxels_gt = voxels_gt[np.sort(idx)]
 
         # Final shape: Voxel x [xyz, sem2d, sem3d],
         #                      [xyz, sem2d, sem3d],
