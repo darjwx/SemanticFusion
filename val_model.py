@@ -66,7 +66,7 @@ def main():
 
             # Save labels
             f = f.view(-1, f.size(-1))
-            labels = f[:,3:-1]
+            labels = f[:,3:input_size]
             _, labels = torch.max(labels, dim=1)
             gt = gt.view(-1, gt.size(-1))
             _, labels_gt = torch.max(gt, dim=1)
