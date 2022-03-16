@@ -24,8 +24,13 @@ class PandasetDataset():
             s = self.dataset[seq]
             s.load_lidar()
 
+            # TEMP: camera fixed to front camera.
+            # We only care abput ego2lidar calibs.
             info = [{'sequence': seq,
                      'frame_idx': idx,
+                     'calib':{'sequence': seq,
+                              'camera': 'front_camera',
+                              'idx': int(idx)},
                      'cloud': os.path.join(self.cfg['paths']['source'], seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
