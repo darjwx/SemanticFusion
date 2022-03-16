@@ -104,7 +104,7 @@ class PointLoader(Dataset):
             cv = np.floor((data[i,:3] - self.minxyz) / self.voxel_size).astype(int)
 
             # Ignore points outside of range
-            if np.any(cv < self.minxyz) or np.any(cv >= self.grid_size):
+            if np.any(cv < np.array([0,0,0])) or np.any(cv >= self.grid_size):
                 continue
 
             voxelid = voxelgrid[cv[0], cv[1], cv[2]]
