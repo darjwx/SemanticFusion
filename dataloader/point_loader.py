@@ -8,6 +8,9 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
+# Pandaset calibration
+from utils import pandaset_util as ps_util
+
 class PointLoader(Dataset):
     def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map):
 
@@ -37,11 +40,17 @@ class PointLoader(Dataset):
     def __getitem__(self, idx):
         pd_cloud = pd.read_pickle(self.infos[idx]['cloud'])
 
+        calib = ps_util.PandasetCalibration('datasets/pandaset/data/data', self.infos[idx]['calib'])
+
         # Use 360 lidar
         pd_cloud = pd_cloud[pd_cloud.d == 0]
         raw_cloud = pd_cloud.to_numpy()
         # xyz values only
         raw_cloud = raw_cloud[:, :3]
+        # Pandaset default coord system is 'ego'.
+        # We need 'lidar' to filter the points with
+        # max range values.
+        raw_cloud = calib.project_ego_to_lidar(raw_cloud)
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
         sem2d = np.vectorize(self.sem_map.__getitem__)(sem2d)
