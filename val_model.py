@@ -5,6 +5,7 @@ import torch
 torch.manual_seed(1)
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from utils.lovasz_losses import iou
 
 import yaml
 import argparse
@@ -39,6 +40,7 @@ def main():
     data_val = cfg['paths']['data_val']
     gt_map = cfg['gt_map']
     sem_map = cfg['sem_map']
+    classes = cfg['classes']
 
     model = Model(input_size, max_num_points, max_voxels)
     model = model.to(device)
@@ -53,6 +55,7 @@ def main():
     print('Validating model')
     model.eval()
     pbar = tqdm(total=len(valloader))
+    ious = np.zeros((len(valloader), num_classes-1))
     with torch.no_grad():
         for d, data in enumerate(valloader):
             input = data['input_data'].to(device)
@@ -63,6 +66,9 @@ def main():
             att_mask = model(input)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
+
+            # IoU
+            ious[d] = iou(f, gt, num_classes, ignore=0)
 
             # Save labels
             f = f.view(-1, f.size(-1))
@@ -86,6 +92,8 @@ def main():
             pbar.update(1)
         pbar.close()
 
+        for o in range(ious.shape[1]):
+            print('mIOU - {}: {}'.format(classes[o], np.mean(ious[:,o])))
 
 if __name__ == '__main__':
     main()

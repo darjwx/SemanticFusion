@@ -7,11 +7,13 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 
 from utils.build_loss import build_loss
+from utils.lovasz_losses import iou
 
 import yaml
 import argparse
 import os
 from tqdm import tqdm
+import numpy as np
 
 def main():
     parser = argparse.ArgumentParser()
@@ -74,7 +76,7 @@ def main():
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
-            #Loss
+            # Loss
             train_loss = build_loss(f, gt, num_classes, idx)
 
             train_loss.backward()
@@ -94,8 +96,9 @@ def main():
             print('validating epoch {}'.format(epoch))
             model.eval()
             rloss_val = 0.0
+            ious = np.zeros((len(valloader), num_classes-1))
             with torch.no_grad():
-                for data in valloader:
+                for v, data in enumerate(valloader):
                     input = d['input_data'].to(device)
                     gt = d['gt'].to(device)
                     raw_cloud = input[:,:,:,:3]
@@ -111,9 +114,15 @@ def main():
 
                     f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
-                    #Loss
+                    # Loss
                     val_loss = build_loss(f, gt, num_classes, idx)
                     rloss_val += val_loss.item()
+
+                    # IoU
+                    ious[v] = iou(f, gt, num_classes, ignore=0)
+
+                for o in range(ious.shape[1]):
+                    print('mIOU - {}: {}'.format(classes[o], np.mean(ious[:,o])))
 
                 print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
                 rloss_val = 0.0
