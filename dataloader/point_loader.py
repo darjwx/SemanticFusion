@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 class PointLoader(Dataset):
-    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range):
+    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map):
 
         infos = []
         with open(data, 'rb') as f:
@@ -21,12 +21,15 @@ class PointLoader(Dataset):
         self.input_size = input_size
         self.num_classes = num_classes
         self.pc_range = pc_range
+        self.gt_map = gt_map
+        self.sem_map = sem_map
 
     def __len__(self):
         return np.shape(self.infos)[0]
 
     def __getitem__(self, idx):
         pd_cloud = pd.read_pickle(self.infos[idx]['cloud'])
+
         # Use 360 lidar
         pd_cloud = pd_cloud[pd_cloud.d == 0]
         raw_cloud = pd_cloud.to_numpy()
@@ -34,9 +37,12 @@ class PointLoader(Dataset):
         raw_cloud = raw_cloud[:, :3]
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
+        sem2d = np.vectorize(self.sem_map.__getitem__)(sem2d)
+
         sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.uint8).reshape(-1, 2)
         # Files contain scores too, we only want classes
         sem3d = sem3d[:,0]
+        sem3d = np.vectorize(self.sem_map.__getitem__)(sem3d)
 
         sem2d_onehot = np.zeros((sem2d.shape[0], self.num_classes))
         sem2d_onehot[np.arange(sem2d.shape[0]),sem2d] = 1
@@ -49,7 +55,9 @@ class PointLoader(Dataset):
 
         # Ground truth
         gt = pd.read_pickle(self.infos[idx]['gt']).to_numpy()
-        gt = gt[pd_cloud.index].astype(np.uint8).squeeze(1)
+        gt = gt[pd_cloud.index.to_numpy()].astype(np.uint8).squeeze(1)
+
+        gt = np.vectorize(self.gt_map.__getitem__)(gt)
 
         gt_onehot = np.zeros((gt.shape[0], self.num_classes))
         gt_onehot[np.arange(gt.shape[0]),gt] = 1

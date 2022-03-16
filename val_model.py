@@ -37,6 +37,8 @@ def main():
     num_classes = cfg['training_params']['num_classes']
     pc_range = cfg['training_params']['pc_range']
     data_val = cfg['paths']['data_val']
+    gt_map = cfg['gt_map']
+    sem_map = cfg['sem_map']
 
     model = Model(input_size, max_num_points, max_voxels)
     model = model.to(device)
@@ -45,7 +47,7 @@ def main():
     # Load model
     model.load_state_dict(torch.load(args.model))
 
-    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range)
+    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
 
     print('Validating model')
