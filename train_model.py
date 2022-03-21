@@ -99,8 +99,8 @@ def main():
             ious = np.zeros((len(valloader), num_classes-1))
             with torch.no_grad():
                 for v, data in enumerate(valloader):
-                    input = d['input_data'].to(device)
-                    gt = d['gt'].to(device)
+                    input = data['input_data'].to(device)
+                    gt = data['gt'].to(device)
                     raw_cloud = input[:,:,:,:3]
                     sem2d = input[:,:,:,3:num_classes+3]
                     sem3d = input[:,:,:,num_classes+3:input_size]
