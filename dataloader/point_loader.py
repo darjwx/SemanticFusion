@@ -133,7 +133,7 @@ class PointLoader(Dataset):
         if num_points.nonzero()[0].shape[0] > self.max_voxels:
             # Prioratize voxels with more points
             idx = num_points.nonzero()[0] # Non zero voxels
-            idx = np.argsort(idx)[::-1] # Sorted ids
+            idx = np.argsort(num_points[idx])[::-1] # Sort ids: prioritize the bigger ones
             voxels = voxels[idx[0:self.max_voxels]]
             voxels_gt = voxels_gt[idx[0:self.max_voxels]]
         else:
