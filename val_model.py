@@ -13,6 +13,7 @@ import os
 from tqdm import tqdm
 import numpy as np
 import pickle
+import gzip
 
 def main():
     parser = argparse.ArgumentParser()
@@ -85,9 +86,8 @@ def main():
             data['points'] = points
             data['gt'] = labels_gt
 
-            file_path = os.path.join(args.out_path, '{}.pkl'.format(d))
-
-            with open(file_path, 'wb') as f:
+            file_path = os.path.join(args.out_path, '{}.gz'.format(d))
+            with gzip.open(file_path, 'wb') as f:
                 pickle.dump(data, f)
 
             pbar.update(1)
