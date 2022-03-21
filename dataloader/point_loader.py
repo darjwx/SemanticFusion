@@ -2,6 +2,7 @@ import numpy as np
 np.random.seed(1)
 import pickle
 import pandas as pd
+from numba import jit
 
 # Pytorch
 import torch
@@ -11,14 +12,72 @@ from torch.utils.data import Dataset
 # Pandaset calibration
 from utils import pandaset_util as ps_util
 
+# Use jit compiler
+# Using jit: 15m per epoch
+# Plain python: 1h 10m per epoch
+@jit(nopython=True)
+def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
+                          grid_size, minxyz, max_voxels, max_num_points,\
+                          voxel_size):
+    # data: [x,y,z,sem2d,sem3d]
+    # gt: [gt sem]
+    # Obtain number of voxels in xyz
+
+    num_voxels = 0
+    for i in range(data.shape[0]):
+        # Transform coords to voxel space
+        cv = np.floor((data[i,:3] - minxyz.astype(np.float64)) / voxel_size.astype(np.float64)).astype(np.int32)
+
+        # Ignore points outside of range
+        if np.any(cv < np.array([0,0,0])) or np.any(cv >= grid_size):
+            continue
+
+        voxelid = voxelgrid[cv[0], cv[1], cv[2]]
+        # Case 1: new voxel
+        if voxelid == -1:
+            voxelid = num_voxels
+            voxelgrid[cv[0], cv[1], cv[2]] = num_voxels
+            num_voxels += 1
+
+        # Case 2: existing voxel, check current number of points
+        if num_points[voxelid] < max_num_points:
+            voxels[voxelid, num_points[voxelid]] = data[i]
+            voxels_gt[voxelid, num_points[voxelid]] = gt[i]
+            num_points[voxelid] += 1
+
+    # If the number of non-empty voxels exceeds max allowed, use random sampling.
+    if num_points.nonzero()[0].shape[0] > max_voxels:
+        # Prioratize voxels with more points
+        idx = num_points.nonzero()[0] # Non zero voxels
+        idx = np.argsort(num_points[idx])[::-1] # Sort ids: prioritize voxels with more points
+        voxels = voxels[idx[0:max_voxels]]
+        voxels_gt = voxels_gt[idx[0:max_voxels]]
+    else:
+        idx = num_points.nonzero()[0]
+        inv_idx = np.nonzero(num_points == 0)[0]
+
+        # Zero padding needed
+        pd = max_voxels - idx.shape[0]
+        idx = np.append(idx, inv_idx[0:pd])
+
+        voxels = voxels[np.sort(idx)]
+        voxels_gt = voxels_gt[np.sort(idx)]
+
+    # Final shape: Voxel x [xyz, sem2d, sem3d],
+    #                      [xyz, sem2d, sem3d],
+    #                      [xyz, sem2d, sem3d]
+
+    return voxels, voxels_gt
+
 class PointLoader(Dataset):
-    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map):
+    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size,\
+                 num_classes, pc_range, gt_map, sem_map):
 
         infos = []
         with open(data, 'rb') as f:
             self.infos = pickle.load(f)
 
-        self.voxel_size = voxel_size
+        self.voxel_size = np.array(voxel_size)
         self.max_num_points = max_num_points
         self.max_voxels = max_voxels
         self.input_size = input_size
@@ -90,9 +149,6 @@ class PointLoader(Dataset):
         return train
 
     def generate_voxels(self, data, gt):
-        # data: [x,y,z,sem2d,sem3d]
-        # gt: [gt sem]
-        # Obtain number of voxels in xy
 
         # Compare the number of voxels with max allowed.
         # If it is higher, use it.
@@ -107,48 +163,9 @@ class PointLoader(Dataset):
         voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes))
         num_points = np.zeros(n_voxels, dtype=np.int32)
 
-        num_voxels = 0
-        for i in range(data.shape[0]):
-            # Transform coords to voxel space
-            cv = np.floor((data[i,:3] - self.minxyz) / self.voxel_size).astype(int)
+        # Call voxel generation with numba
+        input_data, input_gt = generate_voxels_numba(data, voxelgrid, voxels, voxels_gt,\
+                                                    num_points, gt, self.grid_size, self.minxyz,\
+                                                    self.max_voxels, self.max_num_points, self.voxel_size)
 
-            # Ignore points outside of range
-            if np.any(cv < np.array([0,0,0])) or np.any(cv >= self.grid_size):
-                continue
-
-            voxelid = voxelgrid[cv[0], cv[1], cv[2]]
-            # Case 1: new voxel
-            if voxelid == -1:
-                voxelid = num_voxels
-                voxelgrid[cv[0], cv[1], cv[2]] = num_voxels
-                num_voxels += 1
-
-            # Case 2: existing voxel, check current number of points
-            if num_points[voxelid] < self.max_num_points:
-                voxels[voxelid, num_points[voxelid]] = data[i]
-                voxels_gt[voxelid, num_points[voxelid]] = gt[i]
-                num_points[voxelid] += 1
-
-        # If the number of non-empty voxels exceeds max allowed, use random sampling.
-        if num_points.nonzero()[0].shape[0] > self.max_voxels:
-            # Prioratize voxels with more points
-            idx = num_points.nonzero()[0] # Non zero voxels
-            idx = np.argsort(num_points[idx])[::-1] # Sort ids: prioritize the bigger ones
-            voxels = voxels[idx[0:self.max_voxels]]
-            voxels_gt = voxels_gt[idx[0:self.max_voxels]]
-        else:
-            idx = num_points.nonzero()[0]
-            inv_idx = np.nonzero(num_points == 0)[0]
-
-            # Zero padding needed
-            pd = self.max_voxels - idx.shape[0]
-            idx = np.append(idx, inv_idx[0:pd])
-
-            voxels = voxels[np.sort(idx)]
-            voxels_gt = voxels_gt[np.sort(idx)]
-
-        # Final shape: Voxel x [xyz, sem2d, sem3d],
-        #                      [xyz, sem2d, sem3d],
-        #                      [xyz, sem2d, sem3d]
-
-        return voxels, voxels_gt
+        return input_data, input_gt
