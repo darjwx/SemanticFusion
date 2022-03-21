@@ -121,8 +121,11 @@ def main():
                     # IoU
                     ious[v] = iou(f, gt, num_classes, ignore=0)
 
+                aiou = 0
                 for o in range(ious.shape[1]):
+                    aiou += np.mean(ious[:,o])
                     print('mIOU - {}: {}'.format(classes[o], np.mean(ious[:,o])))
+                print('Average mIOU - {}'.format(aiou/(num_classes-1)))
 
                 print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
                 rloss_val = 0.0

@@ -86,14 +86,18 @@ def main():
             data['gt'] = labels_gt
 
             file_path = os.path.join(args.out_path, '{}.pkl'.format(d))
+
             with open(file_path, 'wb') as f:
                 pickle.dump(data, f)
 
             pbar.update(1)
         pbar.close()
 
+        aiou = 0
         for o in range(ious.shape[1]):
+            aiou += np.mean(ious[:,o])
             print('mIOU - {}: {}'.format(classes[o], np.mean(ious[:,o])))
+        print('Average mIOU - {}'.format(aiou/(num_classes-1)))
 
 if __name__ == '__main__':
     main()
