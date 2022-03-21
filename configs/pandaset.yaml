@@ -1,13 +1,13 @@
 training_params:
   lr: 0.001
-  epochs: 15
+  epochs: 40
   batch_size: 2
   voxel_size: [0.2, 0.2, 0.2] #x, y, z
   max_num_points: 10
-  max_voxels: 25000
-  input_size: 15 #xyz + num classes
-  num_classes: 6
-  pc_range: [-50, 50, -50, 50, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
+  max_voxels: 50000
+  input_size: 23 #xyz + num classes
+  num_classes: 10
+  pc_range: [-80, 80, -80, 80, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
 
 sequences:
   train: ['035', '052', '105', '030', '113', '002', '084', '028', '119', '044', '005', '102', '034', '077', '064', '067', '058', '019', '015', '037', '095', '120', '066', '023', '071', '117', '098', '139', '038', '116', '046', '088', '089', '040', '033', '016', '024', '122', '039', '158', '069', '124', '123', '106'] # ~60% of the sequences, randomly chosen
@@ -21,7 +21,7 @@ paths:
   data_train: 'datasets/pandaset/out/pandaset_infos_train.pkl'
   data_val: 'datasets/pandaset/out/pandaset_infos_val.pkl'
 
-classes: ['Car', 'Truck', 'Road', 'Signs', 'Sidewalk']
+classes: ['Car', 'Motorcycle', 'Truck', 'Pedestrian', 'Road', 'Sidewalk', 'Building', 'Vegetation', 'Signs']
 
 gt_map:
   0: 0
@@ -29,20 +29,20 @@ gt_map:
   2: 0
   3: 0
   4: 0
-  5: 0
+  5: 8 # Vegetation
   6: 0
-  7: 3
+  7: 5 # Road
   8: 0
   9: 0
   10: 0
-  11: 5
+  11: 6 # Sidewalk
   12: 0
-  13: 1
-  14: 2
-  15: 2
-  16: 2
-  17: 0
-  18: 0
+  13: 1 # Car
+  14: 3 # Truck
+  15: 3 # Truck
+  16: 3 # Truck
+  17: 3 # Truck
+  18: 2 # Motorcycle
   19: 0
   20: 0
   21: 0
@@ -50,36 +50,36 @@ gt_map:
   23: 0
   24: 0
   25: 0
-  26: 0
+  26: 2 # Bicycle
   27: 0
   28: 0
   29: 0
-  30: 0
+  30: 4 # Pedestrian
   31: 0
   32: 0
   33: 0
   34: 0
   35: 0
-  36: 4
+  36: 9 # Signs
   37: 0
   38: 0
   39: 0
   40: 0
-  41: 0
+  41: 7 # Building
   42: 0
 
 sem_map:
   0: 0
-  1: 1
-  2: 0
-  3: 0
-  4: 2
+  1: 1 # Car
+  2: 2 # Motorcycle
+  3: 2 # Motorcycle
+  4: 3 # Truck
   5: 0
-  6: 0
-  7: 3
-  8: 5
-  9: 0
+  6: 4 # Pedestrian
+  7: 5 # Road
+  8: 6 # Sidewalk
+  9: 7 # Building
   10: 0
-  11: 0
+  11: 8 # Vegetation
   12: 0
-  13: 4
+  13: 9 # Signs
