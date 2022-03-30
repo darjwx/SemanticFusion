@@ -49,7 +49,7 @@ def main():
     dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map)
     dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map)
 
-    trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=4)
+    trainloader = DataLoader(dataset_train, batch_size, shuffle=True, num_workers=4)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
 
     print('Training')
