@@ -15,7 +15,13 @@ import os
 from tqdm import tqdm
 import numpy as np
 
+# TensorBoard
+from torch.utils.tensorboard import SummaryWriter
+
 def main():
+    train_writer = SummaryWriter('logs/tb/test/train')
+    val_writer = SummaryWriter('logs/tb/test/val')
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
     args = parser.parse_args()
@@ -90,6 +96,9 @@ def main():
 
         print('Training, epoch {}, loss {}'.format(epoch, rloss/len(trainloader)))
 
+        train_writer.add_scalar('loss', rloss/len(trainloader), epoch)
+        train_writer.close()
+
         if epoch % 5 == 0 and epoch != 0:
             print('validating epoch {}'.format(epoch))
             model.eval()
@@ -124,8 +133,12 @@ def main():
                     aiou += np.mean(ious[:,o])
                     print('mIOU - {}: {}'.format(classes[o], np.mean(ious[:,o])))
                 print('Average mIOU - {}'.format(aiou/(num_classes-1)))
-
                 print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
+
+                val_writer.add_scalar('iou', aiou/(num_classes-1), epoch)
+                val_writer.add_scalar('loss', rloss_val/len(valloader), epoch)
+                val_writer.close()
+
                 rloss_val = 0.0
 
     # Save model
