@@ -29,12 +29,13 @@ TODO
 ## Usage
 Train model
 
-`bash train.sh <gpu> <log.txt>`
+`bash train.sh <gpu> <log.txt> <config_path>`
 
 Internally calls train_model.py
 
 * Arg 1: Gpu id that will be used to train the model.
 * Arg 2: Logs filename.
+* Arg 3: Path to the dataset's configs in yaml format.
 
 Generate labels
 
