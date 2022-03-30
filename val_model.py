@@ -85,6 +85,7 @@ def main():
             data['labels'] = labels
             data['points'] = points
             data['gt'] = labels_gt
+            data['att_mask'] = att_mask.view(-1).cpu().numpy()
 
             file_path = os.path.join(args.out_path, '{}.gz'.format(d))
             with gzip.open(file_path, 'wb') as f:
