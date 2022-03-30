@@ -7,6 +7,7 @@ from tqdm import tqdm
 from utils import pandaset_util as ps_util
 from pathlib import Path
 import gzip
+import utils.color_utils as color_utils
 
 class PandaIdx():
     def __init__(self):
@@ -123,21 +124,9 @@ def birds_eye_point_cloud(points,
 
     return im, points_id
 
-color_map = [
-    [0,0,0], #Ignore
-    [255, 0, 0], # Car
-    [182, 89, 6], # Bicycle/Motorcycle
-    [255, 128, 0], # Truck
-    [204, 153, 255], # Pedestrian
-    [255, 0, 255], # Road
-    [180, 150, 200], # Sidewalk
-    [241, 230, 255], # Buildings
-    [147, 253, 194], # Nature
-    [255, 246, 143] # Signs
-]
-color_map = np.asarray(color_map)
-
 def main(args):
+    # Load color map
+    color_map = color_utils.Colours().get_color_map('labels')
 
     with open(args.config_path, 'r') as ymlfile:
         cfg = yaml.safe_load(ymlfile)
