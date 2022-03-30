@@ -84,15 +84,13 @@ def main():
 
             rloss += train_loss.item()
 
-            if i %50 == 0 and i != 0:
-                print('Training, epoch {}, loss {}'.format(epoch, rloss/50))
-                rloss = 0.0
-
             optimizer.zero_grad()
             pbar.update(1)
         pbar.close()
 
-        if epoch % 10 == 0 and epoch != 0:
+        print('Training, epoch {}, loss {}'.format(epoch, rloss/len(trainloader)))
+
+        if epoch % 5 == 0 and epoch != 0:
             print('validating epoch {}'.format(epoch))
             model.eval()
             rloss_val = 0.0
