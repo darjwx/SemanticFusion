@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class PointNetConv(nn.Module):
     def __init__(self, m, n, k_size=None):
         super(PointNetConv, self).__init__()
-        self.conv1 = nn.Conv2d(m, n, 1)
+        self.conv1 = nn.Conv2d(m, n, 1, bias=False)
         self.bn = nn.BatchNorm2d(n)
 
         self.k_size = k_size
@@ -25,7 +25,7 @@ class PointNetConv(nn.Module):
 class PointNet(nn.Module):
     def __init__(self, m, n, k_size):
         super(PointNet, self).__init__()
-        self.fc1 = nn.Linear(m, n)
+        self.fc1 = nn.Linear(m, n, bias=False)
         self.bn = nn.BatchNorm1d(n)
 
         self.k_size = k_size
@@ -56,9 +56,9 @@ class Model(nn.Module):
 
         # Conv layers
         # 192: 64+128+256 - point + voxel + global feeatures
-        self.conv1 = nn.Conv2d(448, 64, 1)
+        self.conv1 = nn.Conv2d(448, 64, 1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.conv2 = nn.Conv2d(64, 1, 1)
+        self.conv2 = nn.Conv2d(64, 1, 1, bias=False)
         self.bn2 = nn.BatchNorm2d(1)
 
     def forward(self, x):
