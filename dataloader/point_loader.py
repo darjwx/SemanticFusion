@@ -52,6 +52,9 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
         idx = np.argsort(num_points[idx])[::-1] # Sort ids: prioritize voxels with more points
         voxels = voxels[idx[0:max_voxels]]
         voxels_gt = voxels_gt[idx[0:max_voxels]]
+
+        # Update point numbers after resampling
+        num_points = num_points[idx[0:max_voxels]]
     else:
         idx = num_points.nonzero()[0]
         inv_idx = np.nonzero(num_points == 0)[0]
@@ -62,6 +65,16 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
 
         voxels = voxels[np.sort(idx)]
         voxels_gt = voxels_gt[np.sort(idx)]
+
+        # Update point numbers after resampling
+        num_points = num_points[np.sort(idx)]
+
+    # Duplicate points instead of zero-padding
+    mask = (num_points < max_num_points) & (num_points != 0)
+    mask = mask.nonzero()[0]
+    for i in mask:
+        d = max_num_points - num_points[i]
+        voxels[i,num_points[i]:max_num_points] = np.repeat(np.expand_dims(voxels[i,num_points[i]-1], axis=0), d).reshape(-1,d).T
 
     # Final shape: Voxel x [xyz, sem2d, sem3d],
     #                      [xyz, sem2d, sem3d],
@@ -165,7 +178,7 @@ class PointLoader(Dataset):
 
         # Call voxel generation with numba
         input_data, input_gt = generate_voxels_numba(data, voxelgrid, voxels, voxels_gt,\
-                                                    num_points, gt, self.grid_size, self.minxyz,\
-                                                    self.max_voxels, self.max_num_points, self.voxel_size)
+                                                     num_points, gt, self.grid_size, self.minxyz,\
+                                                     self.max_voxels, self.max_num_points, self.voxel_size)
 
         return input_data, input_gt
