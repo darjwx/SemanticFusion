@@ -78,12 +78,19 @@ def main():
             _, labels3d = torch.max(sem3d, dim=3)
             idx = torch.logical_or((labels2d == labels_gt), (labels3d == labels_gt))
 
+            # Build gt for binary loss
+            bin_gt = -torch.ones(idx.size()).to(device)
+            bin_gt[(labels2d == labels_gt)] = 1
+            bin_gt[(labels3d == labels_gt)] = 0
+
+            bin_gt = bin_gt[bin_gt != -1]
+
             att_mask = model(input)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
             # Loss
-            train_loss = build_loss(f, gt, num_classes, idx)
+            train_loss = build_loss(att_mask, bin_gt, idx)
 
             train_loss.backward()
             optimizer.step()
@@ -119,10 +126,17 @@ def main():
                     _, labels3d = torch.max(sem3d, dim=3)
                     idx = torch.logical_or((labels2d == labels_gt), (labels3d == labels_gt))
 
+                    # Build gt for binary loss
+                    bin_gt = -torch.ones(idx.size()).to(device)
+                    bin_gt[(labels2d == labels_gt)] = 1
+                    bin_gt[(labels3d == labels_gt)] = 0
+
+                    bin_gt = bin_gt[bin_gt != -1]
+
                     f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
                     # Loss
-                    val_loss = build_loss(f, gt, num_classes, idx)
+                    val_loss = build_loss(att_mask, bin_gt, idx)
                     rloss_val += val_loss.item()
 
                     # IoU
