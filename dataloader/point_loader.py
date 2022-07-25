@@ -18,7 +18,7 @@ from utils import pandaset_util as ps_util
 @jit(nopython=True)
 def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
                           min_grid_size, max_grid_size, minxyz, max_voxels, max_num_points,\
-                          voxel_size):
+                          voxel_size, coors):
     # data: [x,y,z,sem2d,sem3d]
     # gt: [gt sem]
     # Obtain number of voxels in xyz
@@ -45,6 +45,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
         idx = np.argsort(num_points)[::-1] # Sort ids: prioritize voxels with more points
         voxels = voxels[idx[0:max_voxels]]
         voxels_gt = voxels_gt[idx[0:max_voxels]]
+        coors = coors[idx[0:max_voxels]]
 
         # Update point numbers after resampling
         num_points = num_points[idx[0:max_voxels]]
@@ -58,6 +59,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
 
         voxels = voxels[np.sort(idx)]
         voxels_gt = voxels_gt[np.sort(idx)]
+        coors = coors[np.sort(idx)]
 
         # Update point numbers after resampling
         num_points = num_points[np.sort(idx)]
@@ -73,7 +75,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
     #                      [xyz, sem2d, sem3d],
     #                      [xyz, sem2d, sem3d]
 
-    return voxels, voxels_gt
+    return voxels, voxels_gt, coors
 
 class PointLoader(Dataset):
     def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size,\
@@ -152,13 +154,13 @@ class PointLoader(Dataset):
         gt_onehot[np.arange(gt.shape[0]),gt] = 1
 
         # Filter data with voxels
-        input_data, input_gt = self.generate_voxels(data, gt_onehot)
+        input_data, input_gt, coors = self.generate_voxels(data, gt_onehot)
 
         # Tensors
         input_data = torch.from_numpy(input_data)
         input_gt = torch.from_numpy(input_gt)
 
-        train = {'input_data': input_data.float(), 'gt': input_gt.float()}
+        train = {'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors}
 
         return train
 
@@ -169,13 +171,18 @@ class PointLoader(Dataset):
         ids = np.arange(start=0, stop=self.grid_size, step=1, dtype=np.int32)
         voxelgrid = ids.reshape((self.pc_grid_size[2], self.pc_grid_size[0], self.pc_grid_size[1]))
 
+        # Get coords of each voxel
+        coors = np.argwhere(voxelgrid != -1)
+        # Add zero padding for batch dim
+        coors = np.pad(coors, ((0,0),(1,0)), mode='constant', constant_values=0).astype(np.int32)
+
         voxels = np.zeros((self.grid_size, self.max_num_points, self.input_size), dtype=np.float32)
         voxels_gt = np.zeros((self.grid_size, self.max_num_points, self.num_classes), dtype=np.float32)
         num_points = np.zeros(self.grid_size, dtype=np.int32)
 
         # Call voxel generation with numba
-        input_data, input_gt = generate_voxels_numba(data, voxelgrid, voxels, voxels_gt,\
+        input_data, input_gt, coors = generate_voxels_numba(data, voxelgrid, voxels, voxels_gt,\
                                                      num_points, gt, self.min_grid_size, self.max_grid_size, self.minxyz,\
-                                                     self.max_voxels, self.max_num_points, self.voxel_size)
+                                                     self.max_voxels, self.max_num_points, self.voxel_size, coors)
 
-        return input_data, input_gt
+        return input_data, input_gt, coors

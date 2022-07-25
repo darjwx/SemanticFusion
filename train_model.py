@@ -69,6 +69,7 @@ def main():
         for i, d in enumerate(trainloader):
             input = d['input_data'].to(device)
             gt = d['gt'].to(device)
+            coors = d['coors'].to(device)
             raw_cloud = input[:,:,:,:3]
             sem2d = input[:,:,:,3:num_classes+3]
             sem3d = input[:,:,:,num_classes+3:input_size]
@@ -116,6 +117,7 @@ def main():
                 for v, data in enumerate(valloader):
                     input = data['input_data'].to(device)
                     gt = data['gt'].to(device)
+                    coors = d['coors'].to(device)
                     raw_cloud = input[:,:,:,:3]
                     sem2d = input[:,:,:,3:num_classes+3]
                     sem3d = input[:,:,:,num_classes+3:input_size]
