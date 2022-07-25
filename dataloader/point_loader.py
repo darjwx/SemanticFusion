@@ -26,7 +26,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
     num_voxels = 0
     for i in range(data.shape[0]):
         # Transform coords to voxel space
-        cv = np.floor((data[i,:3] - minxyz.astype(np.float64)) / voxel_size.astype(np.float64)).astype(np.int32)
+        cv = np.floor((data[i,:3] - minxyz.astype(np.float32)) / voxel_size.astype(np.float32)).astype(np.int32)
 
         # Ignore points outside of range
         if np.any(cv < np.array([0,0,0])) or np.any(cv >= grid_size):
@@ -172,8 +172,8 @@ class PointLoader(Dataset):
             n_voxels = self.max_voxels
 
         voxelgrid = -np.ones(self.grid_size, dtype=np.int32)
-        voxels = np.zeros((n_voxels, self.max_num_points, self.input_size))
-        voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes))
+        voxels = np.zeros((n_voxels, self.max_num_points, self.input_size), dtype=np.float32)
+        voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes), dtype=np.float32)
         num_points = np.zeros(n_voxels, dtype=np.int32)
 
         # Call voxel generation with numba
