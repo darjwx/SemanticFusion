@@ -3,6 +3,7 @@ datasets/
 
 # Python
 __pycache__/
+*.pyc
 
 # Generated files during training
 /out
