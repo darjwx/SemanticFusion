@@ -37,6 +37,7 @@ def main():
     epochs = cfg['training_params']['epochs']
     batch_size = cfg['training_params']['batch_size']
     voxel_size = cfg['training_params']['voxel_size']
+    sparse_shape = cfg['training_params']['sparse_shape']
     max_num_points = cfg['training_params']['max_num_points']
     max_voxels = cfg['training_params']['max_voxels']
     input_size = cfg['training_params']['input_size']
@@ -52,8 +53,8 @@ def main():
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
-    dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map)
-    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map)
+    dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
+    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
 
     trainloader = DataLoader(dataset_train, batch_size, shuffle=True, num_workers=4)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)

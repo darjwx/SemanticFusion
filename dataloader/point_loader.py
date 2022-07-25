@@ -17,39 +17,32 @@ from utils import pandaset_util as ps_util
 # Plain python: 1h 10m per epoch
 @jit(nopython=True)
 def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
-                          grid_size, minxyz, max_voxels, max_num_points,\
+                          min_grid_size, max_grid_size, minxyz, max_voxels, max_num_points,\
                           voxel_size):
     # data: [x,y,z,sem2d,sem3d]
     # gt: [gt sem]
     # Obtain number of voxels in xyz
 
-    num_voxels = 0
     for i in range(data.shape[0]):
         # Transform coords to voxel space
         cv = np.floor((data[i,:3] - minxyz.astype(np.float32)) / voxel_size.astype(np.float32)).astype(np.int32)
 
         # Ignore points outside of range
-        if np.any(cv < np.array([0,0,0])) or np.any(cv >= grid_size):
+        if np.any(cv < min_grid_size) or np.any(cv >= max_grid_size):
             continue
 
         voxelid = voxelgrid[cv[0], cv[1], cv[2]]
-        # Case 1: new voxel
-        if voxelid == -1:
-            voxelid = num_voxels
-            voxelgrid[cv[0], cv[1], cv[2]] = num_voxels
-            num_voxels += 1
 
-        # Case 2: existing voxel, check current number of points
         if num_points[voxelid] < max_num_points:
             voxels[voxelid, num_points[voxelid]] = data[i]
             voxels_gt[voxelid, num_points[voxelid]] = gt[i]
-            num_points[voxelid] += 1
+
+        num_points[voxelid] += 1
 
     # If the number of non-empty voxels exceeds max allowed, use random sampling.
     if num_points.nonzero()[0].shape[0] > max_voxels:
         # Prioratize voxels with more points
-        idx = num_points.nonzero()[0] # Non zero voxels
-        idx = np.argsort(num_points[idx])[::-1] # Sort ids: prioritize voxels with more points
+        idx = np.argsort(num_points)[::-1] # Sort ids: prioritize voxels with more points
         voxels = voxels[idx[0:max_voxels]]
         voxels_gt = voxels_gt[idx[0:max_voxels]]
 
@@ -61,7 +54,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
 
         # Zero padding needed
         pd = max_voxels - idx.shape[0]
-        idx = np.append(idx, inv_idx[0:pd])
+        idx = np.append(idx, inv_idx[:pd])
 
         voxels = voxels[np.sort(idx)]
         voxels_gt = voxels_gt[np.sort(idx)]
@@ -84,7 +77,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
 
 class PointLoader(Dataset):
     def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size,\
-                 num_classes, pc_range, gt_map, sem_map):
+                 num_classes, pc_range, target_grid_size, gt_map, sem_map):
 
         infos = []
         with open(data, 'rb') as f:
@@ -104,7 +97,12 @@ class PointLoader(Dataset):
         self.grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
         self.grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
         self.grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
-        self.grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
+        self.pc_grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
+
+        self.target_grid_size = np.array(target_grid_size).astype(int)
+        self.min_grid_size = ((self.target_grid_size - self.target_grid_size)/2).astype(int)
+        self.max_grid_size = (self.min_grid_size + self.target_grid_size).astype(int)
+        self.grid_size = self.target_grid_size[0]*self.target_grid_size[1]*self.target_grid_size[2]
 
     def __len__(self):
         return np.shape(self.infos)[0]
@@ -124,6 +122,7 @@ class PointLoader(Dataset):
         # max range values.
         raw_cloud = calib.project_ego_to_lidar(raw_cloud)
 
+        import os
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
         sem2d = np.vectorize(self.sem_map.__getitem__)(sem2d)
 
@@ -163,22 +162,18 @@ class PointLoader(Dataset):
 
     def generate_voxels(self, data, gt):
 
-        # Compare the number of voxels with max allowed.
-        # If it is higher, use it.
-        if self.grid_size[0]*self.grid_size[1]*self.grid_size[2] > self.max_voxels:
-            n_voxels = self.grid_size[0]*self.grid_size[1]*self.grid_size[2]
-        # If it is lower use max number.
-        else:
-            n_voxels = self.max_voxels
+        # Create an ordered voxelgrid.
+        # Each position holds the voxel ID.
+        ids = np.arange(start=0, stop=self.grid_size, step=1, dtype=np.int32)
+        voxelgrid = ids.reshape(self.target_grid_size)
 
-        voxelgrid = -np.ones(self.grid_size, dtype=np.int32)
-        voxels = np.zeros((n_voxels, self.max_num_points, self.input_size), dtype=np.float32)
-        voxels_gt = np.zeros((n_voxels, self.max_num_points, self.num_classes), dtype=np.float32)
-        num_points = np.zeros(n_voxels, dtype=np.int32)
+        voxels = np.zeros((self.grid_size, self.max_num_points, self.input_size), dtype=np.float32)
+        voxels_gt = np.zeros((self.grid_size, self.max_num_points, self.num_classes), dtype=np.float32)
+        num_points = np.zeros(self.grid_size, dtype=np.int32)
 
         # Call voxel generation with numba
         input_data, input_gt = generate_voxels_numba(data, voxelgrid, voxels, voxels_gt,\
-                                                     num_points, gt, self.grid_size, self.minxyz,\
+                                                     num_points, gt, self.min_grid_size, self.max_grid_size, self.minxyz,\
                                                      self.max_voxels, self.max_num_points, self.voxel_size)
 
         return input_data, input_gt
