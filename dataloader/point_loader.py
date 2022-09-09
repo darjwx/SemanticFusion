@@ -100,9 +100,9 @@ class PointLoader(Dataset):
         self.pc_grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
 
         self.target_grid_size = np.array(target_grid_size).astype(int)
-        self.min_grid_size = ((self.target_grid_size - self.target_grid_size)/2).astype(int)
+        self.min_grid_size = ((self.pc_grid_size - self.target_grid_size)/2).astype(int)
         self.max_grid_size = (self.min_grid_size + self.target_grid_size).astype(int)
-        self.grid_size = self.target_grid_size[0]*self.target_grid_size[1]*self.target_grid_size[2]
+        self.grid_size = self.pc_grid_size[0]*self.pc_grid_size[1]*self.pc_grid_size[2]
 
     def __len__(self):
         return np.shape(self.infos)[0]
@@ -122,7 +122,9 @@ class PointLoader(Dataset):
         # max range values.
         raw_cloud = calib.project_ego_to_lidar(raw_cloud)
 
-        import os
+        # Rotate velo
+        raw_cloud = ps_util.rotate_velo(raw_cloud, np.pi/2)
+
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
         sem2d = np.vectorize(self.sem_map.__getitem__)(sem2d)
 
@@ -165,7 +167,7 @@ class PointLoader(Dataset):
         # Create an ordered voxelgrid.
         # Each position holds the voxel ID.
         ids = np.arange(start=0, stop=self.grid_size, step=1, dtype=np.int32)
-        voxelgrid = ids.reshape(self.target_grid_size)
+        voxelgrid = ids.reshape((self.pc_grid_size))
 
         voxels = np.zeros((self.grid_size, self.max_num_points, self.input_size), dtype=np.float32)
         voxels_gt = np.zeros((self.grid_size, self.max_num_points, self.num_classes), dtype=np.float32)
