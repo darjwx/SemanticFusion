@@ -49,7 +49,7 @@ def main():
     sem_map = cfg['sem_map']
     classes = cfg['classes']
 
-    model = Model(input_size, max_num_points, max_voxels)
+    model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
@@ -87,7 +87,7 @@ def main():
 
             bin_gt = bin_gt[bin_gt != -1]
 
-            att_mask = model(input)
+            att_mask = model(input, coors)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
@@ -121,7 +121,7 @@ def main():
                     raw_cloud = input[:,:,:,:3]
                     sem2d = input[:,:,:,3:num_classes+3]
                     sem3d = input[:,:,:,num_classes+3:input_size]
-                    att_mask = model(input)
+                    att_mask = model(input, coors)
 
                     # Ignore preds that will never match gt
                     _, labels_gt = torch.max(gt, dim=3)
