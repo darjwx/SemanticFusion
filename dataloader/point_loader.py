@@ -31,7 +31,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
         if np.any(cv < min_grid_size) or np.any(cv >= max_grid_size):
             continue
 
-        voxelid = voxelgrid[cv[0], cv[1], cv[2]]
+        voxelid = voxelgrid[cv[2], cv[0], cv[1]]
 
         if num_points[voxelid] < max_num_points:
             voxels[voxelid, num_points[voxelid]] = data[i]
@@ -167,7 +167,7 @@ class PointLoader(Dataset):
         # Create an ordered voxelgrid.
         # Each position holds the voxel ID.
         ids = np.arange(start=0, stop=self.grid_size, step=1, dtype=np.int32)
-        voxelgrid = ids.reshape((self.pc_grid_size))
+        voxelgrid = ids.reshape((self.pc_grid_size[2], self.pc_grid_size[0], self.pc_grid_size[1]))
 
         voxels = np.zeros((self.grid_size, self.max_num_points, self.input_size), dtype=np.float32)
         voxels_gt = np.zeros((self.grid_size, self.max_num_points, self.num_classes), dtype=np.float32)
