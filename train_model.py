@@ -33,6 +33,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load configs
+    name = cfg['training_params']['name']
     lr = cfg['training_params']['lr']
     epochs = cfg['training_params']['epochs']
     batch_size = cfg['training_params']['batch_size']
@@ -53,8 +54,8 @@ def main():
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
-    dataset_train = PointLoader(data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
-    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
+    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
+    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
 
     trainloader = DataLoader(dataset_train, batch_size, shuffle=True, num_workers=4)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)

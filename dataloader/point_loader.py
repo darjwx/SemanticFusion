@@ -12,6 +12,38 @@ from torch.utils.data import Dataset
 # Pandaset calibration
 from utils import pandaset_util as ps_util
 
+# Dataset's data functions
+
+# Pandaset: load gt and raw_cloud data
+def pd_data(idx, infos):
+    pd_cloud = pd.read_pickle(infos[idx]['cloud'])
+
+    calib = ps_util.PandasetCalibration('datasets/pandaset/data/data', infos[idx]['calib'])
+
+    # Use 360 lidar
+    pd_cloud = pd_cloud[pd_cloud.d == 0]
+    raw_cloud = pd_cloud.to_numpy()
+    # xyz values only
+    raw_cloud = raw_cloud[:, :3]
+    # Pandaset default coord system is 'ego'.
+    # We need 'lidar' to filter the points with
+    # max range values.
+    raw_cloud = calib.project_ego_to_lidar(raw_cloud)
+
+    # Rotate velo
+    raw_cloud = ps_util.rotate_velo(raw_cloud, np.pi/2)
+
+    # Ground truth
+    gt = pd.read_pickle(infos[idx]['gt']).to_numpy()
+    gt = gt[pd_cloud.index.to_numpy()].astype(np.uint8).squeeze(1)
+
+    return raw_cloud, gt
+
+# Supported datasets
+datasets = {
+    'pandaset': pd_data
+}
+
 # Use jit compiler
 # Using jit: 15m per epoch
 # Plain python: 1h 10m per epoch
@@ -78,7 +110,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
     return voxels, voxels_gt, coors
 
 class PointLoader(Dataset):
-    def __init__(self, data, voxel_size, max_num_points, max_voxels, input_size,\
+    def __init__(self, dataset, data, voxel_size, max_num_points, max_voxels, input_size,\
                  num_classes, pc_range, target_grid_size, gt_map, sem_map):
 
         infos = []
@@ -93,6 +125,7 @@ class PointLoader(Dataset):
         self.pc_range = pc_range
         self.gt_map = gt_map
         self.sem_map = sem_map
+        self.dataset = dataset
 
         # Voxels variables
         self.minxyz = np.array([self.pc_range[0], self.pc_range[2], self.pc_range[4]]).astype(int)
@@ -110,22 +143,8 @@ class PointLoader(Dataset):
         return np.shape(self.infos)[0]
 
     def __getitem__(self, idx):
-        pd_cloud = pd.read_pickle(self.infos[idx]['cloud'])
 
-        calib = ps_util.PandasetCalibration('datasets/pandaset/data/data', self.infos[idx]['calib'])
-
-        # Use 360 lidar
-        pd_cloud = pd_cloud[pd_cloud.d == 0]
-        raw_cloud = pd_cloud.to_numpy()
-        # xyz values only
-        raw_cloud = raw_cloud[:, :3]
-        # Pandaset default coord system is 'ego'.
-        # We need 'lidar' to filter the points with
-        # max range values.
-        raw_cloud = calib.project_ego_to_lidar(raw_cloud)
-
-        # Rotate velo
-        raw_cloud = ps_util.rotate_velo(raw_cloud, np.pi/2)
+        raw_cloud, gt = datasets[self.dataset](idx, self.infos)
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
         sem2d = np.vectorize(self.sem_map.__getitem__)(sem2d)
@@ -143,10 +162,6 @@ class PointLoader(Dataset):
         # Concat vectors
         aux = np.concatenate((raw_cloud, sem2d_onehot), 1)
         data = np.concatenate((aux, sem3d_onehot), 1)
-
-        # Ground truth
-        gt = pd.read_pickle(self.infos[idx]['gt']).to_numpy()
-        gt = gt[pd_cloud.index.to_numpy()].astype(np.uint8).squeeze(1)
 
         gt = np.vectorize(self.gt_map.__getitem__)(gt)
 

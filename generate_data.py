@@ -4,11 +4,11 @@ import os
 import sys
 import pickle
 
-sys.path.append('/home/darjimen/pandaset-devkit/python')
-import pandaset as ps
-
 class PandasetDataset():
     def __init__(self, cfg, split='train', root_path=None):
+        sys.path.append('/home/darjimen/pandaset-devkit/python')
+        import pandaset as ps
+
         self.cfg = cfg
         self.dataset = ps.DataSet(os.path.join(root_path, 'data'))
         self.split = split
@@ -40,16 +40,22 @@ class PandasetDataset():
 
         return infos
 
-def create_pandaset_infos(dataset_cfg, data_path, save_path):
-    dataset = PandasetDataset(cfg=dataset_cfg, root_path=data_path)
+# Dataloaders
+datasets = {
+    'pandaset': PandasetDataset
+}
+
+def create_infos(dataset_cfg, data_path, save_path):
+    name = cfg['training_params']['name']
+    dataset = datasets[name](cfg=dataset_cfg, root_path=data_path)
     for split in ['train', 'val']:
         print("---------------- Start to generate {} data infos ---------------".format(split))
         dataset.set_split(split)
         infos = dataset.get_infos()
-        file_path = os.path.join(save_path, 'pandaset_infos_{}.pkl'.format(split))
+        file_path = os.path.join(save_path, '{}_infos_{}.pkl'.format(name, split))
         with open(file_path, 'wb') as f:
             pickle.dump(infos, f)
-        print("Pandaset info {} file is saved to {}".format(split, file_path))
+        print("{} info {} file is saved to {}".format(name, split, file_path))
 
     print('---------------Data preparation Done---------------')
 
@@ -63,9 +69,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     with open(args.config_path, 'r') as ymlfile:
-        cfg = yaml.load(ymlfile)
+        cfg = yaml.safe_load(ymlfile)
 
-    create_pandaset_infos(
+    create_infos(
         dataset_cfg=cfg,
         data_path=args.data_path,
         save_path=args.save_path
