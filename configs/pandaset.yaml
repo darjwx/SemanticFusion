@@ -18,6 +18,7 @@ sequences:
 
 paths:
   source: 'datasets/pandaset/data/data'
+  sem_images: 'datasets/pandaset/semantic_images'
   sem2d: 'datasets/pandaset/sem2d'
   sem3d: 'datasets/pandaset/sem3d'
   data_train: 'datasets/pandaset/out/pandaset_infos_train.pkl'

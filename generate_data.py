@@ -12,6 +12,7 @@ class PandasetDataset():
         self.cfg = cfg
         self.dataset = ps.DataSet(os.path.join(root_path, 'data'))
         self.split = split
+        self.cams = ['back_camera', 'front_camera', 'front_left_camera', 'front_right_camera', 'left_camera', 'right_camera']
 
     def set_split(self, split):
         self.sequences = self.cfg['sequences'][split]
@@ -24,14 +25,13 @@ class PandasetDataset():
             s = self.dataset[seq]
             s.load_lidar()
 
-            # TEMP: camera fixed to front camera.
-            # We only care abput ego2lidar calibs.
             info = [{'sequence': seq,
                      'frame_idx': idx,
-                     'calib':{'sequence': seq,
-                              'camera': 'front_camera',
-                              'idx': int(idx)},
+                     'calib':[{'sequence': seq,
+                              'camera': c,
+                              'idx': int(idx)} for c in self.cams],
                      'cloud': os.path.join(self.cfg['paths']['source'], seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
+                     'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'camera', c, ("{:02d}.png".format(idx))) for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
                      'gt': os.path.join(self.cfg['paths']['source'], seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
@@ -55,7 +55,7 @@ def create_infos(dataset_cfg, data_path, save_path):
         file_path = os.path.join(save_path, '{}_infos_{}.pkl'.format(name, split))
         with open(file_path, 'wb') as f:
             pickle.dump(infos, f)
-        print("{} info {} file is saved to {}".format(name, split, file_path))
+        print('{} info {} file is saved to {}'.format(name, split, file_path))
 
     print('---------------Data preparation Done---------------')
 
@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
     parser.add_argument('--data_path', type=str, default='datasets/pandaset/data', help='Data path')
     parser.add_argument('--save_path', type=str, default='datasets/pandaset/out', help='Output path')
+
     args = parser.parse_args()
 
     with open(args.config_path, 'r') as ymlfile:
