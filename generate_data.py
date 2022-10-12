@@ -1,16 +1,12 @@
 import yaml
 import argparse
 import os
-import sys
+import fnmatch
 import pickle
 
 class PandasetDataset():
-    def __init__(self, cfg, split='train', root_path=None):
-        sys.path.append('/home/darjimen/pandaset-devkit/python')
-        import pandaset as ps
-
+    def __init__(self, cfg, split='train'):
         self.cfg = cfg
-        self.dataset = ps.DataSet(os.path.join(root_path, 'data'))
         self.split = split
         self.cams = ['back_camera', 'front_camera', 'front_left_camera', 'front_right_camera', 'left_camera', 'right_camera']
 
@@ -22,8 +18,9 @@ class PandasetDataset():
         infos = []
         for seq in self.sequences:
             print('%s Sequence: %s' % (self.split, seq))
-            s = self.dataset[seq]
-            s.load_lidar()
+
+            lidar_path = os.path.join(self.cfg['paths']['source'], seq, 'lidar')
+            num_samples = len(fnmatch.filter(os.listdir(lidar_path), '*.pkl.gz'))
 
             info = [{'sequence': seq,
                      'frame_idx': idx,
@@ -35,7 +32,7 @@ class PandasetDataset():
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
                      'gt': os.path.join(self.cfg['paths']['source'], seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
-                    } for idx in range(len(s.lidar.data))]
+                    } for idx in range(num_samples)]
             infos.extend(info)
 
         return infos
@@ -45,9 +42,9 @@ datasets = {
     'pandaset': PandasetDataset
 }
 
-def create_infos(dataset_cfg, data_path, save_path):
+def create_infos(dataset_cfg, save_path):
     name = cfg['training_params']['name']
-    dataset = datasets[name](cfg=dataset_cfg, root_path=data_path)
+    dataset = datasets[name](cfg=dataset_cfg)
     for split in ['train', 'val']:
         print("---------------- Start to generate {} data infos ---------------".format(split))
         dataset.set_split(split)
@@ -64,7 +61,6 @@ def create_infos(dataset_cfg, data_path, save_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
-    parser.add_argument('--data_path', type=str, default='datasets/pandaset/data', help='Data path')
     parser.add_argument('--save_path', type=str, default='datasets/pandaset/out', help='Output path')
 
     args = parser.parse_args()
@@ -74,6 +70,5 @@ if __name__ == '__main__':
 
     create_infos(
         dataset_cfg=cfg,
-        data_path=args.data_path,
         save_path=args.save_path
     )
