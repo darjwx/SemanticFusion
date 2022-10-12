@@ -18,7 +18,9 @@ from utils import pandaset_util as ps_util
 def pd_data(idx, infos):
     pd_cloud = pd.read_pickle(infos[idx]['cloud'])
 
-    calib = ps_util.PandasetCalibration('datasets/pandaset/data/data', infos[idx]['calib'])
+    # Calib hardcoded to back camera. We do not care about the sensor
+    # in the ego2lidar transformation
+    calib = ps_util.PandasetCalibration('datasets/pandaset/data/data', infos[idx]['calib'][0])
 
     # Use 360 lidar
     pd_cloud = pd_cloud[pd_cloud.d == 0]
