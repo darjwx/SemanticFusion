@@ -86,3 +86,20 @@ sem_map:
   11: 8 # Vegetation
   12: 0
   13: 9 # Signs
+
+color_map:
+  '[0,0,0]': 0
+  '[255,0,0]': 1 # Car
+  '[182,89,6]': 2 # Bicycle/Motorcycle
+  '[255,128,0]': 3 # Truck
+  '[0,255,0]': 0 # Small vehicle -> other vehicle?
+  '[204,153,255]': 4 # Pedestrian
+  '[255,0,255]': 5 # Road
+  '[180,150,200]': 6 # Sidewalk
+  '[241,230,255]': 7 # Buildings
+  '[185,122,87]': 0 # Road blocks -> road barriers?
+  '[147,253,194]': 8 # Nature
+  '[139,99,108]': 0 # non-drivable street -> ground?
+  '[0,255,255]': 9 # Traffic signs -> signs
+  '[255,246,143]': 9 # Poles -> signs
+  '[0,128,255]': 9 # Traffic signal (moving/blinking signs) -> signs

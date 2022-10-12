@@ -3,6 +3,7 @@ import argparse
 import os
 import fnmatch
 import pickle
+from utils.project_points import project_points
 
 class PandasetDataset():
     def __init__(self, cfg, split='train'):
@@ -54,6 +55,10 @@ def create_infos(dataset_cfg, save_path):
             pickle.dump(infos, f)
         print('{} info {} file is saved to {}'.format(name, split, file_path))
 
+        if args.build_sem2d:
+            print('Building {} pointclouds with 2d labels'.format(split))
+            project_points(infos, cfg['color_map'], name)
+
     print('---------------Data preparation Done---------------')
 
 
@@ -62,6 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
     parser.add_argument('--save_path', type=str, default='datasets/pandaset/out', help='Output path')
+    parser.add_argument('--build_sem2d', action='store_true', help='Wheter to build pointclouds with labels from 2d semantic images')
 
     args = parser.parse_args()
 
