@@ -37,6 +37,8 @@ def project_points(infos, color_map, dataset):
         if dataset == 'pandaset':
             pc = pd.read_pickle(info['cloud'])
             pc = pc[pc.d == 0].to_numpy()[:, :3]
+        elif dataset == 'carla':
+            pc = np.fromfile(info['cloud'], dtype=np.float32).reshape(-1, 4)[:, :3]
 
         color_labels = np.zeros((pc.shape[0], 3), dtype=np.uint8)
         id_labels = np.zeros((pc.shape[0]), dtype=np.uint8)
@@ -50,6 +52,12 @@ def project_points(infos, color_map, dataset):
                 pc_lidar = calib.project_ego_to_lidar(pc)
                 pc_cam = calib.project_lidar_to_camera(pc_lidar)
                 pc_img = calib.project_lidar_to_image(pc_lidar)
+            elif dataset == 'carla':
+                from .carla_utils import CarlaCalibration
+                calib = CarlaCalibration(info['calib'][id], 'cam0') #TODO do not harcode camera
+
+                pc_cam = calib.project_lidar_to_rect(pc)
+                pc_img = calib.project_lidar_to_image(pc)
 
             sems = np.array(Image.open(im))
 

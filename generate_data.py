@@ -38,9 +38,50 @@ class PandasetDataset():
 
         return infos
 
+class CarlaDataset():
+    def __init__(self, cfg, split='train'):
+
+        self.cfg = cfg
+        self.split = split
+        self.cams = ['front_camera']
+        self.frames = {}
+
+    def set_split(self, split):
+        self.sequences = self.cfg['sequences'][split]
+        self.split = split
+
+        for seq in self.sequences:
+            aux = []
+            file = os.path.join(self.cfg['paths']['source'], f'frames_{seq}.txt')
+            with open(file, 'r') as f:
+                lines = f.readlines()
+                for l in lines:
+                    aux.append(l.split(' '))
+            self.frames[seq] = aux
+
+    def get_infos(self):
+        infos = []
+        for seq in self.sequences:
+            print('%s Sequence: %s' % (self.split, seq))
+
+            num_samples = len(self.frames[seq])
+
+            info = [{'sequence': seq,
+                     'frame_idx': self.frames[seq][idx],
+                     'calib': [os.path.join(self.cfg['paths']['source'], 'calibs') for c in self.cams],
+                     'cloud': os.path.join(self.cfg['paths']['source'], 'cloud', seq, f'{self.frames[seq][idx][0]}.bin'),
+                     'sem_image': [os.path.join(self.cfg['paths']['sem_images'], seq, c, f'{self.frames[seq][idx][1]}.png') for c in self.cams],
+                     'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
+                     'sem3d': os.path.join(self.cfg['paths']['sem3d'], seq, f'{idx}.bin'),
+                    } for idx in range(num_samples)]
+            infos.extend(info)
+
+        return infos
+
 # Dataloaders
 datasets = {
-    'pandaset': PandasetDataset
+    'pandaset': PandasetDataset,
+    'carla': CarlaDataset
 }
 
 def create_infos(dataset_cfg, save_path):

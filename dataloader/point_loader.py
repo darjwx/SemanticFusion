@@ -41,9 +41,19 @@ def pd_data(idx, infos):
 
     return raw_cloud, gt
 
+# Carla: load gt and raw_cloud data
+def carla_data(idx, infos):
+    cr_data = np.fromfile(infos[idx]['cloud'], dtype=np.float32).reshape(-1, 4)
+
+    raw_cloud = cr_data[:, :3]
+    gt = cr_data[:, 3]
+
+    return raw_cloud, gt
+
 # Supported datasets
 datasets = {
-    'pandaset': pd_data
+    'pandaset': pd_data,
+    'carla': carla_data
 }
 
 # Use jit compiler

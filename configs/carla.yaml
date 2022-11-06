@@ -1,0 +1,101 @@
+training_params:
+  name: 'carla'
+  lr: 0.001
+  epochs: 10
+  batch_size: 1
+  voxel_size: [0.2, 0.2, 0.2] #x, y, z
+  max_num_points: 10
+  max_voxels: 30000
+  input_size: 19 #xyz + num classes
+  num_classes: 8
+  pc_range: [-80, 80, -80, 80, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
+  sparse_shape: [800, 500, 35]
+
+sequences:
+  train: ['seq1', 'seq2', 'seq3', 'seq4', 'seq5']
+  val: ['seq6']
+
+paths:
+  source: 'datasets/carla/'
+  sem_images: 'datasets/carla/sem_images'
+  sem2d: 'datasets/carla/sem2d'
+  sem3d: 'datasets/carla/sem3d'
+  data_train: 'datasets/carla/out/carla_infos_train.pkl'
+  data_val: 'datasets/carla/out/carla_infos_val.pkl'
+
+classes: ['Car', 'Pedestrian', 'Road', 'Sidewalk', 'Building', 'Vegetation', 'Signs']
+
+# Carla classes: ['unlabeled', 'building', 'fence', 'other', 'pedestrian', 'pole', 'road line',
+#                 'road', 'sidewalk', 'vegetation', 'vehicles', 'wall', 'traffic sign',
+#                 'sky', 'ground', 'bridge', 'rail track', 'guard rail', 'traffic light',
+#                 'static', 'dynamic', 'water', 'terrain']
+
+gt_map:
+  0: 0
+  1: 5 # Building
+  2: 0
+  3: 0
+  4: 2 # Pedestrian
+  5: 7
+  6: 0
+  7: 3 # Road
+  8: 4 # Sidewalk
+  9: 6 # Vegetation
+  10: 1 # Car
+  11: 0
+  12: 7 # Signs
+  13: 0
+  14: 0
+  15: 0
+  16: 0
+  17: 0
+  18: 7 # Signs
+  19: 0
+  20: 0
+  21: 0
+  22: 0
+  23: 0
+
+sem_map:
+  0: 0
+  1: 1 # Car
+  2: 0 # Motorcycle
+  3: 0 # Motorcycle
+  4: 0 # Truck
+  5: 0
+  6: 2 # Pedestrian
+  7: 3 # Road
+  8: 4 # Sidewalk
+  9: 5 # Building
+  10: 0
+  11: 6 # Vegetation
+  12: 0
+  13: 7 # Signs
+
+
+
+# RGB
+color_map:
+  '[0,0,0]': 0
+  '[70,70,70]': 5
+  '[100,40,40]': 0
+  '[55,90,80]': 0
+  '[220,20,60]': 2
+  '[153,153,153]': 7
+  '[157,234,50]': 0
+  '[128,64,128]': 3
+  '[244,35,232]': 4
+  '[107,142,35]': 6
+  '[0,0,142]': 1
+  '[102,102,156]': 0
+  '[220,220,0]': 7
+  '[70,130,180]': 0
+  '[81,0,81]': 0
+  '[150,100,100]': 0
+  '[230,150,140]': 0
+  '[180,165,180]': 0
+  '[250,170,30]': 7
+  '[110,190,160]': 0
+  '[170,120,50]': 0
+  '[45,60,150]': 0
+  '[145,170,100]': 0
