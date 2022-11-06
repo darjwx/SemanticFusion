@@ -29,10 +29,10 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load configs
-    lr = cfg['training_params']['lr']
-    epochs = cfg['training_params']['epochs']
+    name = cfg['training_params']['name']
     batch_size = 1 # One file per frame
     voxel_size = cfg['training_params']['voxel_size']
+    sparse_shape = cfg['training_params']['sparse_shape']
     max_num_points = cfg['training_params']['max_num_points']
     max_voxels = cfg['training_params']['max_voxels']
     input_size = cfg['training_params']['input_size']
@@ -43,14 +43,13 @@ def main():
     sem_map = cfg['sem_map']
     classes = cfg['classes']
 
-    model = Model(input_size, max_num_points, max_voxels)
+    model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
     # Load model
     model.load_state_dict(torch.load(args.model))
 
-    dataset_val = PointLoader(data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map)
+    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
 
     print('Validating model')
@@ -61,10 +60,11 @@ def main():
         for d, data in enumerate(valloader):
             input = data['input_data'].to(device)
             gt = data['gt'].to(device)
+            coors = data['coors'].to(device)
             raw_cloud = input[:,:,:,:3]
             sem2d = input[:,:,:,3:num_classes+3]
             sem3d = input[:,:,:,num_classes+3:input_size]
-            att_mask = model(input)
+            att_mask = model(input, coors)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
