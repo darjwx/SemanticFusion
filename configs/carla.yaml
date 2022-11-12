@@ -24,6 +24,7 @@ paths:
   data_val: 'datasets/carla/out/carla_infos_val.pkl'
 
 classes: ['Car', 'Pedestrian', 'Road', 'Sidewalk', 'Building', 'Vegetation', 'Signs']
+cams: ['front_camera']
 
 # Carla classes: ['unlabeled', 'building', 'fence', 'other', 'pedestrian', 'pole', 'road line',
 #                 'road', 'sidewalk', 'vegetation', 'vehicles', 'wall', 'traffic sign',

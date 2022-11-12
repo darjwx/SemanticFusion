@@ -9,7 +9,7 @@ class PandasetDataset():
     def __init__(self, cfg, split='train'):
         self.cfg = cfg
         self.split = split
-        self.cams = ['back_camera', 'front_camera', 'front_left_camera', 'front_right_camera', 'left_camera', 'right_camera']
+        self.cams = cfg['cams']
 
     def set_split(self, split):
         self.sequences = self.cfg['sequences'][split]
@@ -43,7 +43,7 @@ class CarlaDataset():
 
         self.cfg = cfg
         self.split = split
-        self.cams = ['front_camera']
+        self.cams = cfg['cams']
         self.frames = {}
 
     def set_split(self, split):

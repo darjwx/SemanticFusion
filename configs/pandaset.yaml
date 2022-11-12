@@ -25,6 +25,7 @@ paths:
   data_val: 'datasets/pandaset/out/pandaset_infos_val.pkl'
 
 classes: ['Car', 'Motorcycle', 'Truck', 'Pedestrian', 'Road', 'Sidewalk', 'Building', 'Vegetation', 'Signs']
+cams: ['front_camera', 'front_left_camera', 'front_right_camera', 'back_camera', 'left_camera', 'right_camera']
 
 gt_map:
   0: 0
