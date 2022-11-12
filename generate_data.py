@@ -24,10 +24,10 @@ class PandasetDataset():
             num_samples = len(fnmatch.filter(os.listdir(lidar_path), '*.pkl.gz'))
 
             info = [{'sequence': seq,
-                     'frame_idx': idx,
+                     'frame_idx': {'cloud': str(idx), 'sem': str(idx)},
                      'calib':[{'sequence': seq,
                               'camera': c,
-                              'idx': int(idx)} for c in self.cams],
+                              'idx': idx} for c in self.cams],
                      'cloud': os.path.join(self.cfg['paths']['source'], seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'camera', c, ("{:02d}.png".format(idx))) for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
@@ -56,7 +56,7 @@ class CarlaDataset():
             with open(file, 'r') as f:
                 lines = f.readlines()
                 for l in lines:
-                    aux.append(l.split(' '))
+                    aux.append(l.strip().split(' '))
             self.frames[seq] = aux
 
     def get_infos(self):
@@ -67,7 +67,7 @@ class CarlaDataset():
             num_samples = len(self.frames[seq])
 
             info = [{'sequence': seq,
-                     'frame_idx': self.frames[seq][idx],
+                     'frame_idx': {'cloud': self.frames[seq][idx][0], 'sem': self.frames[seq][idx][1]},
                      'calib': [os.path.join(self.cfg['paths']['source'], 'calibs') for c in self.cams],
                      'cloud': os.path.join(self.cfg['paths']['source'], 'cloud', seq, f'{self.frames[seq][idx][0]}.bin'),
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'], seq, c, f'{self.frames[seq][idx][1]}.png') for c in self.cams],
