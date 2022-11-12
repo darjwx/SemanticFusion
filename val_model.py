@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from utils.lovasz_losses import iou
 
+import math
 import yaml
 import argparse
 import os
@@ -51,6 +52,7 @@ def main():
 
     dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
+    digits = int(math.log10(len(valloader)))+1
 
     print('Validating model')
     model.eval()
@@ -65,6 +67,12 @@ def main():
             sem2d = input[:,:,:,3:num_classes+3]
             sem3d = input[:,:,:,num_classes+3:input_size]
             att_mask = model(input, coors)
+
+            misc = data['misc']
+            seq = misc['seq'][0]
+            frame = misc['frame']['cloud'][0]
+            if name == 'pandaset':
+                frame = frame.zfill(2)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
@@ -86,8 +94,10 @@ def main():
             data['points'] = points
             data['gt'] = labels_gt
             data['att_mask'] = att_mask.view(-1).cpu().numpy()
+            data['frame'] = frame
+            data['seq'] = seq
 
-            file_path = os.path.join(args.out_path, '{}.gz'.format(d))
+            file_path = os.path.join(args.out_path, '{}.gz'.format(str(d).zfill(digits)))
             with gzip.open(file_path, 'wb') as f:
                 pickle.dump(data, f)
 

@@ -186,8 +186,12 @@ class PointLoader(Dataset):
         # Tensors
         input_data = torch.from_numpy(input_data)
         input_gt = torch.from_numpy(input_gt)
+        misc = {
+            'seq': self.infos[idx]['sequence'],
+            'frame': self.infos[idx]['frame_idx']
+        }
 
-        train = {'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors}
+        train = {'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
 
         return train
 
