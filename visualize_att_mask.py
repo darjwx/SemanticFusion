@@ -7,11 +7,11 @@ from tqdm import tqdm
 from utils import pandaset_util as ps_util
 from pathlib import Path
 import gzip
-import utils.color_utils as color_utils
+import utils.video_utils as video_utils
 
 def main(args):
     # Load color map
-    color_map = color_utils.Colours().get_color_map('att_mask')
+    color_map = video_utils.Colours().get_color_map('att_mask')
 
     with open(args.config_path, 'r') as ymlfile:
         cfg = yaml.safe_load(ymlfile)
