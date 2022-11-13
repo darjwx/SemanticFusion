@@ -56,8 +56,11 @@ def main(args):
                             'idx': int(f)}
                 calib = ps_util.PandasetCalibration(args.data, calib_info)
 
-                cloud_cam = calib.project_lidar_to_camera(cloud_lidar)
-                points = calib.project_lidar_to_image(cloud_lidar)
+                # Revert back to Pandaset's original rotation.
+                cloud_norot = ps_util.rotate_velo(cloud_lidar.copy(), -np.pi/2)
+                # Project points to camera and image frames.
+                cloud_cam = calib.project_lidar_to_camera(cloud_norot.copy())
+                points = calib.project_lidar_to_image(cloud_norot.copy())
                 points, fov_flag = video_utils.pc_in_image_fov(points, cloud_cam, img.shape)
 
             elif dataset == 'carla':
