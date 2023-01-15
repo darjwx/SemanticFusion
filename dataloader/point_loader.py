@@ -160,8 +160,7 @@ class PointLoader(Dataset):
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
         scores2d = sem2d[:,1]
-        classes2d = sem2d[:,0]
-        classes2d = np.vectorize(self.sem_map.__getitem__)(classes2d)
+        classes2d = sem2d[:,0].astype(np.uint8)
 
         sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 2)
         scores3d = sem3d[:,1]
