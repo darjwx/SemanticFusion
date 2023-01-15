@@ -1,11 +1,11 @@
 training_params:
   name: 'pandaset'
   lr: 0.001
-  epochs: 40
-  batch_size: 2
+  epochs: 15
+  batch_size: 1
   voxel_size: [0.2, 0.2, 0.2] #x, y, z
   max_num_points: 10
-  max_voxels: 50000
+  max_voxels: 30000
   input_size: 23 #xyz + num classes
   num_classes: 10
   pc_range: [-80, 80, -80, 80, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
@@ -76,17 +76,14 @@ sem_map:
   0: 0
   1: 1 # Car
   2: 2 # Motorcycle
-  3: 2 # Motorcycle
-  4: 3 # Truck
-  5: 0
-  6: 4 # Pedestrian
-  7: 5 # Road
-  8: 6 # Sidewalk
-  9: 7 # Building
-  10: 0
-  11: 8 # Vegetation
-  12: 0
-  13: 9 # Signs
+  3: 3 # Truck
+  4: 4 # Pedestrian
+  5: 5 # Road
+  6: 6 # Sidewalk
+  7: 7 # Building
+  8: 8 # Vegetation
+  9: 0
+  10: 9 # Signs
 
 color_map:
   '[0,0,0]': 0
