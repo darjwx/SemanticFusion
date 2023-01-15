@@ -12,6 +12,7 @@ import utils.video_utils as video_utils
 def main(args):
     # Load color map
     color_map = video_utils.Colours().get_color_map('labels')
+    att_color_map = video_utils.Colours().get_color_map('att_mask')
 
     with open(args.config_path, 'r') as ymlfile:
         cfg = yaml.safe_load(ymlfile)
@@ -39,6 +40,7 @@ def main(args):
         f = data['frame']
         cloud_lidar = data['points']
         labels = data['labels']
+        att_mask = data['att_mask']
 
         dict_img = {}
         for i, c in enumerate(cams):
@@ -77,7 +79,13 @@ def main(args):
                 # TODO: bev still thinks its BGR
                 bev = cv.cvtColor(bev, cv.COLOR_GRAY2RGB)
                 ind = points_id.nonzero()
-                bev[ind[0],ind[1]] = color_map[labels[points_id[ind[0],ind[1]]].astype(int)]
+
+                if args.att_mask:
+                    ns = np.floor(att_mask*39) # Transform from scores to a color level
+                    bev[ind[0],ind[1]] = att_color_map[ns[points_id[ind[0],ind[1]]].astype(int)]
+                else:
+                    bev[ind[0],ind[1]] = color_map[labels[points_id[ind[0],ind[1]]].astype(int)]
+
                 bev = bev[:,:, ::-1] # TODO: bev still thinks its BGR. Manually change to RGB
 
             fov_labels = labels[fov_flag]
@@ -121,6 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('--video', default='fusion_painting_pandaset.avi', type=str, help='Video name and path')
     parser.add_argument('--data', default='datasets/pandaset/data/data', type=str, help='Dataset path')
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
+    parser.add_argument('--att_mask', action='store_true', help='Whether to paint att_mask scores in bev')
 
     args = parser.parse_args()
 
