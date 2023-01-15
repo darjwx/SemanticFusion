@@ -158,18 +158,21 @@ class PointLoader(Dataset):
 
         raw_cloud, gt = datasets[self.dataset](idx, self.infos)
 
-        sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.uint8)
-        sem2d = np.vectorize(self.sem_map.__getitem__)(sem2d)
+        sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
+        scores2d = sem2d[:,1]
+        classes2d = sem2d[:,0]
+        classes2d = np.vectorize(self.sem_map.__getitem__)(classes2d)
 
-        sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.uint8).reshape(-1, 2)
-        # Files contain scores too, we only want classes
-        sem3d = sem3d[:,0]
-        sem3d = np.vectorize(self.sem_map.__getitem__)(sem3d)
+        sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 2)
+        scores3d = sem3d[:,1]
+        classes3d = sem3d[:,0]
+        classes3d = np.vectorize(self.sem_map.__getitem__)(classes3d)
 
-        sem2d_onehot = np.zeros((sem2d.shape[0], self.num_classes))
-        sem2d_onehot[np.arange(sem2d.shape[0]),sem2d] = 1
-        sem3d_onehot = np.zeros((sem3d.shape[0], self.num_classes))
-        sem3d_onehot[np.arange(sem3d.shape[0]),sem3d] = 1
+        # Onehot with scores
+        sem2d_onehot = np.zeros((classes2d.shape[0], self.num_classes))
+        sem2d_onehot[np.arange(classes2d.shape[0]),classes2d] = scores2d
+        sem3d_onehot = np.zeros((classes3d.shape[0], self.num_classes))
+        sem3d_onehot[np.arange(classes3d.shape[0]),classes3d] = scores3d
 
         # Concat vectors
         aux = np.concatenate((raw_cloud, sem2d_onehot), 1)

@@ -42,6 +42,7 @@ def project_points(infos, color_map, dataset):
 
         color_labels = np.zeros((pc.shape[0], 3), dtype=np.uint8)
         id_labels = np.zeros((pc.shape[0]), dtype=np.uint8)
+        score_labels = np.zeros((pc.shape[0]), dtype=np.float32)
         # Get semantic images from each camera
         for id, im in enumerate(info['sem_image']):
             # 1. Project pc into image
@@ -59,13 +60,18 @@ def project_points(infos, color_map, dataset):
                 pc_cam = calib.project_lidar_to_rect(pc)
                 pc_img = calib.project_lidar_to_image(pc)
 
-            sems = np.array(Image.open(im))
+            # Extra A channel contains scores
+            sems = np.array(Image.open(im).convert('RGBA'))
+            img = sems[:, :, :3]
+            scores = sems[:, :, 3]
 
             # 2. Filter cloud with image boundaries
-            pc_fov, fov_idx = pc_in_image_fov(pc_img, pc_cam, sems.shape)
+            pc_fov, fov_idx = pc_in_image_fov(pc_img, pc_cam, img.shape)
             # 3. Get colors for each cloud point
-            color_labels[fov_idx] = sems[pc_fov[:,1].astype(int), pc_fov[:,0].astype(int)]
+            color_labels[fov_idx] = img[pc_fov[:,1].astype(int), pc_fov[:,0].astype(int)]
+            score_labels[fov_idx] = scores[pc_fov[:,1].astype(int), pc_fov[:,0].astype(int)] / 100
 
         # Transform color values into class ids and save them in bin files for each seq_frame
         id_labels = np.vectorize(get_value_with_key, signature='(n)->()')(color_labels)
-        id_labels.astype(np.uint8).tofile(info['sem2d'])
+        sem2d = np.vstack((id_labels, score_labels)).swapaxes(0,1)
+        sem2d.astype(np.float32).tofile(info['sem2d'])

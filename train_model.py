@@ -90,7 +90,11 @@ def main():
 
             att_mask = model(input, coors)
 
-            f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
+            # Onehot with scores -> onehot with 1s
+            aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
+            sem2d_onehot = torch.where(sem2d != 0, aux, sem2d)
+            sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
+            f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
             # Loss
             train_loss = build_loss(att_mask, bin_gt, idx)
@@ -137,7 +141,11 @@ def main():
 
                     bin_gt = bin_gt[bin_gt != -1]
 
-                    f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
+                    # Onehot with scores -> onehot with 1s
+                    aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
+                    sem2d_onehot = torch.where(sem2d != 0, aux, sem2d)
+                    sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
+                    f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
                     # Loss
                     val_loss = build_loss(att_mask, bin_gt, idx)
