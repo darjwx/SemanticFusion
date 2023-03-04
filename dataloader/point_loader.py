@@ -12,6 +12,8 @@ from torch.utils.data import Dataset
 # Pandaset calibration
 from utils import pandaset_util as ps_util
 
+from utils import video_utils as vu
+
 # Dataset's data functions
 
 # Pandaset: load gt and raw_cloud data
@@ -58,7 +60,19 @@ def kitti_data(idx, infos):
     gt = np.fromfile(infos[idx]['gt'], dtype=np.uint32).reshape((-1))
     gt = gt & 0xFFFF  # Lower half have semantic labels
 
-    return raw_cloud, gt
+    # Ignore points outside of img fov
+    import os
+    from utils.kitti_utils import KittiCalibration
+    calib = KittiCalibration(os.path.join('datasets/kitti/odometry/dataset/sequences/', infos[idx]['calib'][0]['sequence'], 'calib.txt'))
+
+    pc_cam = calib.project_lidar_to_camera(raw_cloud)
+    pc_img = calib.project_lidar_to_image(raw_cloud)
+    _, fov_idx = vu.pc_in_image_fov(pc_img, pc_cam, [376,1241])
+
+    raw_cloud = raw_cloud[fov_idx]
+    gt = gt[fov_idx]
+
+    return raw_cloud, gt, fov_idx
 
 # Supported datasets
 datasets = {
@@ -170,13 +184,15 @@ class PointLoader(Dataset):
 
     def __getitem__(self, idx):
 
-        raw_cloud, gt = datasets[self.dataset](idx, self.infos)
+        raw_cloud, gt, fov = datasets[self.dataset](idx, self.infos)
 
         sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
+        sem2d = sem2d[fov]
         scores2d = sem2d[:,1]
         classes2d = sem2d[:,0].astype(np.uint8)
 
         sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 2)
+        sem3d = sem3d[fov]
         scores3d = sem3d[:,1]
         classes3d = sem3d[:,0]
         classes3d = np.vectorize(self.sem_map.__getitem__)(classes3d)
