@@ -10,6 +10,7 @@ training_params:
   num_classes: 8
   pc_range: [-80, 80, -80, 80, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
   sparse_shape: [800, 500, 35]
+  val_rate: 1 #epochs
 
 sequences:
   train: ['seq1', 'seq2', 'seq3', 'seq4', 'seq5']

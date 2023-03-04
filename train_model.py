@@ -50,6 +50,7 @@ def main():
     sem_map = cfg['sem_map']
     classes = cfg['classes']
     model_path = cfg['paths']['model_path']
+    val_rate = cfg['training_params']['val_rate']
 
     model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
@@ -115,7 +116,7 @@ def main():
         train_writer.add_scalar('loss', rloss/len(trainloader), epoch)
         train_writer.close()
 
-        if epoch % 5 == 0 and epoch != 0:
+        if epoch % val_rate == 0:
             print('validating epoch {}'.format(epoch))
             model.eval()
             rloss_val = 0.0
