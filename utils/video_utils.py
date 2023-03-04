@@ -46,7 +46,7 @@ class Colours():
                 [41, 77, 93],
                 [42, 72, 88]], # Dark blue: 2D sems
 
-            'labels': [
+            'labels_pandaset': [
                 [0,0,0], #Ignore
                 [255, 0, 0], # Car
                 [182, 89, 6], # Bicycle/Motorcycle
@@ -56,7 +56,35 @@ class Colours():
                 [180, 150, 200], # Sidewalk
                 [241, 230, 255], # Buildings
                 [147, 253, 194], # Nature
-                [255, 246, 143]] # Signs
+                [255, 246, 143]], # Signs
+
+            'labels_carla': [
+                [0,0,0], #Ignore
+                [255, 0, 0], # Car
+                [182, 89, 6], # Bicycle/Motorcycle
+                [255, 128, 0], # Truck
+                [204, 153, 255], # Pedestrian
+                [255, 0, 255], # Road
+                [180, 150, 200], # Sidewalk
+                [241, 230, 255], # Buildings
+                [147, 253, 194], # Nature
+                [255, 246, 143]], # Signs
+
+            'labels_kitti': [
+                [0,0,0], # Ignore
+                [0,0,142], # Car
+                [119,11,32], # Bicycle
+                [0,0,230], # Motorcycle
+                [0,0,70], # Truck
+                [220,20,60], # Person
+                [255,0,0], # Rider
+                [128,64,128], # Road
+                [244,35,232], # Sidewalk
+                [70,70,70], # Building
+                [190,153,153], # Fence
+                [107,142,35], # Vegetation
+                [153,153,153], # Pole
+                [220,220,0]] # Traffic sign
         }
 
     def get_color_map(self, id):

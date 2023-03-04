@@ -1,0 +1,107 @@
+training_params:
+  name: 'kitti'
+  lr: 0.0001
+  epochs: 15
+  batch_size: 1
+  voxel_size: [0.2, 0.2, 0.2] #x, y, z
+  max_num_points: 10
+  max_voxels: 20000
+  input_size: 31 #xyz + num classes
+  num_classes: 14
+  pc_range: [0, 80, -70, 70, -3, 3] #xmin, xmax, ymin, ymax, zmin, zmax
+  sparse_shape: [400, 350, 30]
+  val_rate: 1 #epochs
+
+# Kitti odometry
+sequences:
+  train: ['02', '03', '06', '09', '10'] # Randomly selected train split. Sequences 00, 01, 04, 05, 07 are used to train the 3D sems net
+  val: ['08'] # Common val sequence for the 3D sems net and fusion
+  test: ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'] # Official kitti test split
+
+paths:
+  source: 'datasets/kitti/odometry/dataset/sequences'
+  sem_images: 'datasets/kitti/semantic_images/sequences'
+  sem2d: 'datasets/kitti/sem2d'
+  sem3d: 'datasets/kitti/sem3d'
+  data_train: 'datasets/kitti/out/kitti_infos_train.pkl'
+  data_val: 'datasets/kitti/out/kitti_infos_val.pkl'
+  model_path: 'out/kitti/models/test/model-save.pt'
+
+classes: ['Car', 'Bicycle', 'Motorcycle', 'Truck', 'Person', 'Rider', 'Road', 'Sidewalk', 'Building', 'Fence', 'Vegetation', 'Pole', 'Traffic-sign']
+cams: ['front_camera']
+
+gt_map:
+  0 : 0     # Ignore
+  1 : 0     # Outlier -> ignore
+  10: 1     # Car
+  11: 2     # Bicycle
+  13: 0     # Bus -> Other vechicle
+  15: 3     # Motorcycle
+  16: 0     # On-rails -> other-vehicle
+  18: 4     # Truck
+  20: 0     # Other-vehicle
+  30: 5     # Person
+  31: 6     # Bicyclist
+  32: 6     # Motorcyclist
+  40: 7     # Road
+  44: 0    # Parking
+  48: 8    # Sidewalk
+  49: 0    # Other-ground
+  50: 9    # Building
+  51: 10    # Fence
+  52: 0     # Other-structure -> ignore
+  60: 7     # Lane-marking -> road
+  70: 11    # Vegetation
+  71: 0    # Trunk
+  72: 0    # Terrain
+  80: 12    # Pole
+  81: 13    # Traffic-sign
+  99: 0     # Other-object -> ignore
+  252: 1    # Moving-car -> car
+  253: 6    # Moving-bicyclist -> bicyclist
+  254: 5    # Moving-person -> person
+  255: 6    # Moving-motorcyclist -> motorcyclist
+  256: 0    # Moving-on-rails -> other-vehicle
+  257: 0    # Moving-bus -> other-vehicle
+  258: 4    # Moving-truck -> truck
+  259: 0    # Moving-other-vehicle -> other-vehicle
+
+# TODO
+sem_map:
+  0: 0      # Ignore
+  1: 1      # Car
+  2: 2      # Bicycle
+  3: 3      # Motorcycle
+  4: 4      # Truck
+  5: 5      # Person
+  6: 6      # Rider
+  7: 7      # Road
+  8: 8    # Sidewalk
+  9: 9    # Building
+  10: 10    # Fence
+  11: 11    # Vegetation
+  12: 12    # Pole
+  13: 13    # Traffic-sign
+
+color_map:
+  '[0,0,0]': 0 # Ignore
+  '[128,64,128]': 7 # Road
+  '[244,35,232]': 8 # Sidewalk
+  '[70,70,70]': 9 # Building
+  '[102,102,156]': 0 # Wall
+  '[190,153,153]': 10 # Fence
+  '[153,153,153]': 12 # Pole
+  '[250,170,30]': 13 # Traffic light
+  '[220,220,0]': 13 # Traffic sign
+  '[107,142,35]': 11 # Vegetation
+  '[152,251,152]': 0 # Terrain
+  '[0,130,180]': 0 # Sky
+  '[220,20,60]': 5 # Person
+  '[255,0,0]': 6 # Rider
+  '[0,0,142]': 1 # Car
+  '[0,0,70]': 4 # Truck
+  '[0,60,100]': 0 # Bus
+  '[0,80,100]': 0 # Train
+  '[0,0,230]': 3 # Motorcycle
+  '[119,11,32]': 2 # Bicycle
+

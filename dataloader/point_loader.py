@@ -50,10 +50,21 @@ def carla_data(idx, infos):
 
     return raw_cloud, gt
 
+def kitti_data(idx, infos):
+    # Load lidar
+    raw_cloud = np.fromfile(infos[idx]['cloud'], dtype=np.float32).reshape(-1, 4)[:, :3]
+
+    # Load gt
+    gt = np.fromfile(infos[idx]['gt'], dtype=np.uint32).reshape((-1))
+    gt = gt & 0xFFFF  # Lower half have semantic labels
+
+    return raw_cloud, gt
+
 # Supported datasets
 datasets = {
     'pandaset': pd_data,
     'carla': carla_data,
+    'kitti': kitti_data
 }
 
 # Use jit compiler

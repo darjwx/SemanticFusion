@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import pandas as pd
 from PIL import Image
 from tqdm import tqdm
@@ -39,6 +40,8 @@ def project_points(infos, color_map, dataset):
             pc = pc[pc.d == 0].to_numpy()[:, :3]
         elif dataset == 'carla':
             pc = np.fromfile(info['cloud'], dtype=np.float32).reshape(-1, 4)[:, :3]
+        elif dataset == 'kitti':
+            pc = np.fromfile(info['cloud'], dtype=np.float32).reshape(-1, 4)[:, :3]
 
         color_labels = np.zeros((pc.shape[0], 3), dtype=np.uint8)
         id_labels = np.zeros((pc.shape[0]), dtype=np.uint8)
@@ -59,6 +62,13 @@ def project_points(infos, color_map, dataset):
 
                 pc_cam = calib.project_lidar_to_rect(pc)
                 pc_img = calib.project_lidar_to_image(pc)
+            elif dataset == 'kitti':
+                from .kitti_utils import KittiCalibration
+                calib = KittiCalibration(os.path.join('datasets/kitti/odometry/dataset/sequences/', calib_info[id]['sequence'], 'calib.txt'))
+
+                pc_cam = calib.project_lidar_to_camera(pc)
+                pc_img = calib.project_lidar_to_image(pc)
+
 
             # Extra A channel contains scores
             sems = np.array(Image.open(im).convert('RGBA'))

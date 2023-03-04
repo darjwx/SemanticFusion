@@ -78,10 +78,44 @@ class CarlaDataset():
 
         return infos
 
+class KittiDataset():
+    def __init__(self, cfg, split='train'):
+        self.cfg = cfg
+        self.split = split
+        self.cams = cfg['cams']
+
+    def set_split(self, split):
+        self.sequences = self.cfg['sequences'][split]
+        self.split = split
+
+    def get_infos(self):
+        infos = []
+        for seq in self.sequences:
+            print('%s Sequence: %s' % (self.split, seq))
+
+            lidar_path = os.path.join(self.cfg['paths']['source'], seq, 'velodyne')
+            num_samples = len(fnmatch.filter(os.listdir(lidar_path), '*.bin'))
+
+            info = [{'sequence': seq,
+                     'frame_idx': {'cloud': str(idx), 'sem': str(idx)},
+                     'calib':[{'sequence': seq,
+                              'camera': c,
+                              'idx': idx} for c in self.cams],
+                     'cloud': os.path.join(self.cfg['paths']['source'], seq, 'velodyne', ("{:06d}.bin".format(idx))),
+                     'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'image_2', ("{:06d}.png".format(idx))) for c in self.cams],
+                     'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{:06d}.bin".format(seq, idx))),
+                     'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:06d}.bin".format(seq, idx))),
+                     'gt': os.path.join(self.cfg['paths']['source'], seq, 'labels', ("{:06d}.label".format(idx)))
+                    } for idx in range(num_samples)]
+            infos.extend(info)
+
+        return infos
+
 # Dataloaders
 datasets = {
     'pandaset': PandasetDataset,
-    'carla': CarlaDataset
+    'carla': CarlaDataset,
+    'kitti': KittiDataset
 }
 
 def create_infos(dataset_cfg, save_path):

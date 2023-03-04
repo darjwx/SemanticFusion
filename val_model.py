@@ -74,6 +74,8 @@ def main():
             frame = misc['frame']['cloud'][0]
             if name == 'pandaset':
                 frame = frame.zfill(2)
+            elif name == 'kitti':
+                frame = frame.zfill(6)
 
             f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
 
@@ -95,18 +97,19 @@ def main():
             c3d = data['c3d'].view(-1).cpu().numpy().astype(np.uint8)
             ious_c3d[d] = iou(c3d, labels_gt, num_classes, ignore=0, adapt_arrays=False)
 
-            data = {}
-            data['labels'] = labels
-            data['points'] = points
-            data['gt'] = labels_gt
-            data['att_mask'] = att_mask.view(-1).cpu().numpy()
-            data['frame'] = frame
-            data['seq'] = seq
-            data['c3d'] = c3d
+            val_results = {}
+            val_results['labels'] = labels
+            val_results['points'] = points
+            val_results['gt'] = labels_gt
+            val_results['att_mask'] = att_mask.view(-1).cpu().numpy()
+            val_results['frame'] = frame
+            val_results['seq'] = seq
+            val_results['c3d'] = c3d
+
 
             file_path = os.path.join(args.out_path, '{}.gz'.format(str(d).zfill(digits)))
             with gzip.open(file_path, 'wb') as f:
-                pickle.dump(data, f)
+                pickle.dump(val_results, f)
 
             pbar.update(1)
         pbar.close()

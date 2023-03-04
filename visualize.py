@@ -10,10 +10,6 @@ import gzip
 import utils.video_utils as video_utils
 
 def main(args):
-    # Load color map
-    color_map = video_utils.Colours().get_color_map('labels')
-    att_color_map = video_utils.Colours().get_color_map('att_mask')
-
     with open(args.config_path, 'r') as ymlfile:
         cfg = yaml.safe_load(ymlfile)
 
@@ -21,13 +17,18 @@ def main(args):
     cams = cfg['cams']
     dataset = cfg['training_params']['name']
     pc_range = cfg['training_params']['pc_range']
+
+    # Load color map
+    color_map = video_utils.Colours().get_color_map(f'labels_{dataset}')
+    att_color_map = video_utils.Colours().get_color_map('att_mask')
+
     img_dir = args.data
     out_path = args.video
     print('\n' + str(out_path))
 
     # Video variables
     fourcc = cv.VideoWriter_fourcc(*'MPEG')
-    out = cv.VideoWriter(out_path, fourcc, 10, (1920,1080))
+    out = cv.VideoWriter(out_path, fourcc, 10, (1920, 1080))
 
     labels_path = Path(args.labels_path)
 
@@ -47,8 +48,11 @@ def main(args):
             if dataset == 'pandaset':
                 dir = img_dir + '/' + str(seq_idx) + '/camera/' + c + '/' + f + '.jpg'
                 img = cv.imread(dir)
-            else:
+            elif dataset == 'carla':
                 img = np.zeros((720, 1280, 3), np.uint8)
+            elif dataset == 'kitti':
+                dir = img_dir + '/' + str(seq_idx) + '/image_2/' + f.zfill(6) + '.png'
+                img = cv.imread(dir)
 
             if dataset == 'pandaset':
                 from utils import pandaset_util as ps_util
@@ -73,6 +77,14 @@ def main(args):
                 points = calib.project_lidar_to_image(cloud_lidar)
                 points, fov_flag = video_utils.pc_in_image_fov(points, cam_points, img.shape)
 
+            elif dataset == 'kitti':
+                from utils.kitti_utils import KittiCalibration
+                calib = KittiCalibration(os.path.join(cfg['paths']['source'], seq_idx, 'calib.txt'))
+
+                cam_points = calib.project_lidar_to_camera(cloud_lidar)
+                points = calib.project_lidar_to_image(cloud_lidar)
+                points, fov_flag = video_utils.pc_in_image_fov(points, cam_points, img.shape)
+
             if i == 0:
                 bev, points_id = video_utils.birds_eye_point_cloud(cloud_lidar,side_range=(pc_range[2], pc_range[3]),fwd_range=(pc_range[0], pc_range[1]), res=0.1, min_height=pc_range[4], max_height=pc_range[5])
                 bev = cv.bitwise_not(bev)
@@ -90,10 +102,13 @@ def main(args):
 
             fov_labels = labels[fov_flag]
 
+            overlay = img.copy()
             for p in range(points.shape[0]):
-                clr = color_map[int(fov_labels[p])]
-                color = (int(clr[2]), int(clr[1]), int(clr[0]))
-                img = cv.circle(img, (int(points[p,0]), int(points[p,1])), 2, color, -1)
+                if fov_labels[p] != 0:
+                    clr = color_map[int(fov_labels[p])]
+                    color = (int(clr[2]), int(clr[1]), int(clr[0]))
+                    overlay = cv.circle(overlay, (int(points[p,0]), int(points[p,1])), 2, color, -1)
+            img = cv.addWeighted(overlay, 0.7, img, 0.3, 0)
 
             # stack images
             dict_img[c] = img
@@ -105,20 +120,27 @@ def main(args):
             aux1 = np.hstack((dict_img['left_camera'], dict_img['back_camera']))
             back_side = np.hstack((aux1, dict_img['right_camera']))
             final_img = np.vstack((front_side, back_side))
-        else:
+        elif dataset == 'carla':
             final_img = img.copy()
+        elif dataset == 'kitti':
+            aux = dict_img['front_camera'].copy()
+            final_img = np.zeros((aux.shape[0]*3, aux.shape[1], 3), dtype=np.uint8)
+
+            offset_h = final_img.shape[0] - aux.shape[0]
+            offset_w = final_img.shape[1] - aux.shape[1]
+            final_img[int(offset_h/2):int(offset_h/2)+aux.shape[0], int(offset_w/2):int(offset_w/2)+aux.shape[1]] = aux
 
         # Draw legend in bev
-        bev = cv.resize(bev, (pc_range[3]*20, final_img.shape[0]))
+        bev = cv.resize(bev, (pc_range[3]*10, final_img.shape[0]))
 
         for cl in range(0, np.shape(classes)[0]):
             clr = color_map[cl+1]
             clr = (int(clr[2]), int(clr[1]), int(clr[0]))
             cv.rectangle(bev, (50, 50+60*cl), (100, 100+60*cl), clr,-1)
-            cv.putText(bev, classes[cl], (110, 75+60*cl), cv.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2, cv.LINE_AA)
+            cv.putText(bev, classes[cl], (110, 75+60*cl), cv.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 1, cv.LINE_AA)
 
         final_img = np.hstack((final_img, bev))
-        final_img = cv.resize(final_img, (1920,1080))
+        final_img = cv.resize(final_img, (1920, 1080))
         out.write(final_img)
 
     out.release()
