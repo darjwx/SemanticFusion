@@ -50,18 +50,19 @@ def iou_binary(preds, labels, EMPTY=1., ignore=None, per_image=True):
     return 100 * iou
 
 
-def iou(preds, labels, C, EMPTY=1., ignore=None, per_image=False):
+def iou(preds, labels, C, EMPTY=1., ignore=None, per_image=False, adapt_arrays=True):
     """
     Array of IoU for each (non ignored) class
     """
-    preds = preds.view(-1, preds.size(-1))
-    preds = preds[:,3:C+3]
-    _, preds = torch.max(preds, dim=1)
-    labels = labels.view(-1, labels.size(-1))
-    _, labels = torch.max(labels, dim=1)
+    if adapt_arrays:
+        preds = preds.view(-1, preds.size(-1))
+        preds = preds[:,3:C+3]
+        _, preds = torch.max(preds, dim=1)
+        labels = labels.view(-1, labels.size(-1))
+        _, labels = torch.max(labels, dim=1)
 
-    preds = preds.cpu().numpy()
-    labels = labels.cpu().numpy()
+        preds = preds.cpu().numpy()
+        labels = labels.cpu().numpy()
 
     if not per_image:
         preds, labels = (preds,), (labels,)

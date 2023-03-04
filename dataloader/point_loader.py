@@ -53,14 +53,14 @@ def carla_data(idx, infos):
 # Supported datasets
 datasets = {
     'pandaset': pd_data,
-    'carla': carla_data
+    'carla': carla_data,
 }
 
 # Use jit compiler
 # Using jit: 15m per epoch
 # Plain python: 1h 10m per epoch
 @jit(nopython=True)
-def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
+def generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt, num_points, gt,\
                           min_grid_size, max_grid_size, minxyz, max_voxels, max_num_points,\
                           voxel_size, coors):
     # data: [x,y,z,sem2d,sem3d]
@@ -80,6 +80,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
         if num_points[voxelid] < max_num_points:
             voxels[voxelid, num_points[voxelid]] = data[i]
             voxels_gt[voxelid, num_points[voxelid]] = gt[i]
+            voxels_c3d[voxelid, num_points[voxelid]] = c3d[i]
 
         num_points[voxelid] += 1
 
@@ -89,6 +90,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
         idx = np.argsort(num_points)[::-1] # Sort ids: prioritize voxels with more points
         voxels = voxels[idx[0:max_voxels]]
         voxels_gt = voxels_gt[idx[0:max_voxels]]
+        voxels_c3d = voxels_c3d[idx[0:max_voxels]]
         coors = coors[idx[0:max_voxels]]
 
         # Update point numbers after resampling
@@ -103,6 +105,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
 
         voxels = voxels[np.sort(idx)]
         voxels_gt = voxels_gt[np.sort(idx)]
+        voxels_c3d = voxels_c3d[np.sort(idx)]
         coors = coors[np.sort(idx)]
 
         # Update point numbers after resampling
@@ -119,7 +122,7 @@ def generate_voxels_numba(data, voxelgrid, voxels, voxels_gt, num_points, gt,\
     #                      [xyz, sem2d, sem3d],
     #                      [xyz, sem2d, sem3d]
 
-    return voxels, voxels_gt, coors
+    return voxels, voxels_gt, coors, voxels_c3d
 
 class PointLoader(Dataset):
     def __init__(self, dataset, data, voxel_size, max_num_points, max_voxels, input_size,\
@@ -183,21 +186,22 @@ class PointLoader(Dataset):
         gt_onehot[np.arange(gt.shape[0]),gt] = 1
 
         # Filter data with voxels
-        input_data, input_gt, coors = self.generate_voxels(data, gt_onehot)
+        input_data, input_gt, coors, voxels_c3d = self.generate_voxels(data, gt_onehot, classes3d)
 
         # Tensors
         input_data = torch.from_numpy(input_data)
         input_gt = torch.from_numpy(input_gt)
+        voxels_c3d = torch.from_numpy(voxels_c3d)
         misc = {
             'seq': self.infos[idx]['sequence'],
             'frame': self.infos[idx]['frame_idx']
         }
 
-        train = {'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
+        train = {'c3d': voxels_c3d.float(), 'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
 
         return train
 
-    def generate_voxels(self, data, gt):
+    def generate_voxels(self, data, gt, c3d):
 
         # Create an ordered voxelgrid.
         # Each position holds the voxel ID.
@@ -210,12 +214,13 @@ class PointLoader(Dataset):
         coors = np.pad(coors, ((0,0),(1,0)), mode='constant', constant_values=0).astype(np.int32)
 
         voxels = np.zeros((self.grid_size, self.max_num_points, self.input_size), dtype=np.float32)
+        voxels_c3d = np.zeros((self.grid_size, self.max_num_points), dtype=np.float32)
         voxels_gt = np.zeros((self.grid_size, self.max_num_points, self.num_classes), dtype=np.float32)
         num_points = np.zeros(self.grid_size, dtype=np.int32)
 
         # Call voxel generation with numba
-        input_data, input_gt, coors = generate_voxels_numba(data, voxelgrid, voxels, voxels_gt,\
+        input_data, input_gt, coors, c3d_results = generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt,\
                                                      num_points, gt, self.min_grid_size, self.max_grid_size, self.minxyz,\
                                                      self.max_voxels, self.max_num_points, self.voxel_size, coors)
 
-        return input_data, input_gt, coors
+        return input_data, input_gt, coors, c3d_results

@@ -58,6 +58,7 @@ def main():
     model.eval()
     pbar = tqdm(total=len(valloader))
     ious = np.zeros((len(valloader), num_classes-1))
+    ious_c3d = np.zeros((len(valloader), num_classes-1))
     with torch.no_grad():
         for d, data in enumerate(valloader):
             input = data['input_data'].to(device)
@@ -89,6 +90,11 @@ def main():
             labels = labels.cpu().numpy()
             points = f[:,:3].cpu().numpy()
             labels_gt = labels_gt.cpu().numpy()
+
+            #C3D IoU
+            c3d = data['c3d'].view(-1).cpu().numpy().astype(np.uint8)
+            ious_c3d[d] = iou(c3d, labels_gt, num_classes, ignore=0, adapt_arrays=False)
+
             data = {}
             data['labels'] = labels
             data['points'] = points
@@ -96,6 +102,7 @@ def main():
             data['att_mask'] = att_mask.view(-1).cpu().numpy()
             data['frame'] = frame
             data['seq'] = seq
+            data['c3d'] = c3d
 
             file_path = os.path.join(args.out_path, '{}.gz'.format(str(d).zfill(digits)))
             with gzip.open(file_path, 'wb') as f:
@@ -105,10 +112,12 @@ def main():
         pbar.close()
 
         aiou = 0
+        aiou_c3d = 0
         for o in range(ious.shape[1]):
             aiou += np.mean(ious[:,o])
-            print('mIOU - {}: {}'.format(classes[o], np.mean(ious[:,o])))
-        print('Average mIOU - {}'.format(aiou/(num_classes-1)))
+            aiou_c3d += np.mean(ious_c3d[:,o])
+            print('mIOU - {}: {} -> {}'.format(classes[o], np.mean(ious_c3d[:,o]), np.mean(ious[:,o])))
+        print('Average mIOU {} -> {}'.format(aiou_c3d/(num_classes-1), aiou/(num_classes-1)))
 
 if __name__ == '__main__':
     main()
