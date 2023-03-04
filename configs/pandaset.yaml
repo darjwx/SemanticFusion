@@ -23,6 +23,7 @@ paths:
   sem3d: 'datasets/pandaset/sem3d'
   data_train: 'datasets/pandaset/out/pandaset_infos_train.pkl'
   data_val: 'datasets/pandaset/out/pandaset_infos_val.pkl'
+  model_path: 'out/pandaset/models/test/model-save.pt'
 
 classes: ['Car', 'Motorcycle', 'Truck', 'Pedestrian', 'Road', 'Sidewalk', 'Building', 'Vegetation', 'Signs']
 cams: ['front_camera', 'front_left_camera', 'front_right_camera', 'back_camera', 'left_camera', 'right_camera']

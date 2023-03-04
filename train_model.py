@@ -49,6 +49,7 @@ def main():
     gt_map = cfg['gt_map']
     sem_map = cfg['sem_map']
     classes = cfg['classes']
+    model_path = cfg['paths']['model_path']
 
     model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
@@ -61,6 +62,7 @@ def main():
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
 
     print('Training')
+    last_mAiou = 0
     for epoch in range(epochs):
         print('-------- Epoch {} --------'.format(epoch))
         pbar = tqdm(total=len(trainloader))
@@ -161,15 +163,19 @@ def main():
                 print('Average mIOU - {}'.format(aiou/(num_classes-1)))
                 print('Validation loss in epoch {}: {}'.format(epoch, rloss_val/len(valloader)))
 
-                val_writer.add_scalar('iou', aiou/(num_classes-1), epoch)
+                mAiou = aiou/(num_classes-1)
+
+                # Save model
+                if mAiou > last_mAiou:
+                    print(f'Saving model with a IoU of {mAiou}%')
+                    torch.save(model.state_dict(), model_path)
+                    last_mAiou = mAiou
+
+                val_writer.add_scalar('iou', mAiou, epoch)
                 val_writer.add_scalar('loss', rloss_val/len(valloader), epoch)
                 val_writer.close()
 
                 rloss_val = 0.0
-
-    # Save model
-    print('Saving model')
-    torch.save(model.state_dict(), 'out/pandaset/models/model-save.pt')
 
 if __name__ == '__main__':
     main()

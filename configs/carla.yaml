@@ -22,6 +22,7 @@ paths:
   sem3d: 'datasets/carla/sem3d'
   data_train: 'datasets/carla/out/carla_infos_train.pkl'
   data_val: 'datasets/carla/out/carla_infos_val.pkl'
+  model_path: 'out/carla/models/test/model-save.pt'
 
 classes: ['Car', 'Pedestrian', 'Road', 'Sidewalk', 'Building', 'Vegetation', 'Signs']
 cams: ['front_camera']
