@@ -147,7 +147,7 @@ def generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt, n
     #                      [xyz, sem2d, sem3d],
     #                      [xyz, sem2d, sem3d]
 
-    return voxels, voxels_gt, coors, voxels_c3d
+    return voxels, voxels_gt, coors, voxels_c3d, num_points
 
 class PointLoader(Dataset):
     def __init__(self, dataset, data, voxel_size, max_num_points, max_voxels, input_size,\
@@ -227,7 +227,7 @@ class PointLoader(Dataset):
                 'frame': self.infos[idx]['frame_idx']
             }
 
-            train = {'c3d': voxels_c3d.float(), 'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
+            train = {'voxel_stats': num_voxels, 'c3d': voxels_c3d.float(), 'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
         else:
             import pickle
             import gzip
@@ -254,8 +254,8 @@ class PointLoader(Dataset):
         num_points = np.zeros(self.grid_size, dtype=np.int32)
 
         # Call voxel generation with numba
-        input_data, input_gt, coors, c3d_results = generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt,\
+        input_data, input_gt, coors, c3d_results, num_voxels = generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt,\
                                                      num_points, gt, self.min_grid_size, self.max_grid_size, self.minxyz,\
                                                      self.max_voxels, self.max_num_points, self.voxel_size, coors)
 
-        return input_data, input_gt, coors, c3d_results
+        return input_data, input_gt, coors, c3d_results, num_voxels

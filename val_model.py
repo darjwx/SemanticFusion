@@ -62,6 +62,7 @@ def main():
     ious_c3d = np.zeros((len(valloader), num_classes-1))
     with torch.no_grad():
         for d, data in enumerate(valloader):
+            num_voxels = data['voxel_stats']
             input = data['input_data'].to(device)
             gt = data['gt'].to(device)
             coors = data['coors'].to(device)

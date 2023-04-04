@@ -72,6 +72,7 @@ def main():
         model.train()
         rloss = 0.0
         for i, d in enumerate(trainloader):
+            num_voxels = d['voxel_stats']
             input = d['input_data'].to(device)
             gt = d['gt'].to(device)
             coors = d['coors'].to(device)
@@ -124,9 +125,10 @@ def main():
             ious = np.zeros((len(valloader), num_classes-1))
             with torch.no_grad():
                 for v, data in enumerate(valloader):
+                    num_voxels = data['voxel_stats']
                     input = data['input_data'].to(device)
                     gt = data['gt'].to(device)
-                    coors = d['coors'].to(device)
+                    coors = data['coors'].to(device)
                     raw_cloud = input[:,:,:,:3]
                     sem2d = input[:,:,:,3:num_classes+3]
                     sem3d = input[:,:,:,num_classes+3:input_size]
