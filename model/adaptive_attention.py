@@ -90,11 +90,12 @@ class Model(nn.Module):
 
         # Conv layers
         # 192: 64+128+256 - point + voxel + global features
-        self.conv1 = nn.Conv2d(400, 64, 1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        self.conv1 = nn.Conv2d(400, 256, 1, bias=False)
+        self.bn1 = nn.BatchNorm2d(256)
         self.lr = nn.LeakyReLU()
-        self.conv2 = nn.Conv2d(64, 1, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(1)
+        self.conv2 = nn.Conv2d(256, 128, 1, bias=False)
+        self.fc1_1 = nn.Linear(128, 1)
+        self.fc1_2 = nn.Linear(128, 1)
 
         self.apply(self._init_weights)
 
@@ -150,10 +151,14 @@ class Model(nn.Module):
 
         # Conv layer with Sigmoid activation
         # (batch) x ch(64) x voxel x points
-        y =self.bn2(self.conv2(y))
+        y =self.conv2(y)
         # (batch) x voxel x points (ch = 1)
         y = y.permute(0,2,3,1)
-        att_mask = torch.sigmoid(y)
+        y_1 = self.fc1_1(y)
+        y_2 = self.fc1_2(y)
+        att_mask_1 = torch.sigmoid(y_1)
+        att_mask_2 = torch.sigmoid(y_2)
+        att_mask = torch.cat((att_mask_1, att_mask_2), dim=3)
 
         return att_mask
 
@@ -163,10 +168,12 @@ def fusion_voxels(raw_cloud, sem2d, sem3d, att_mask):
     # c = concat -> raw cloud, b+a
 
     # att_mask -> (batch) x voxels x points x num_classes
-    att_mask = att_mask.expand(-1, -1, -1, sem2d.size(3))
+    att_mask_2d = att_mask[:,:,:,1].unsqueeze(-1).expand(-1, -1, -1, sem2d.size(3))
+    att_mask_3d = att_mask[:,:,:,0].unsqueeze(-1).expand(-1, -1, -1, sem3d.size(3))
 
-    a = sem2d*att_mask
-    b = sem3d*(1 - att_mask)
+    a = torch.mul(sem2d,att_mask_2d)
+    b = torch.mul(sem3d,att_mask_3d)
+
     aux = (b+a)
 
     c = torch.cat((raw_cloud, aux), dim=3)

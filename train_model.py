@@ -71,6 +71,8 @@ def main():
 
         model.train()
         rloss = 0.0
+        rloss2d = 0.0
+        rloss3d = 0.0
         for i, d in enumerate(trainloader):
             num_voxels = d['voxel_stats']
             input = d['input_data'].to(device)
@@ -84,14 +86,28 @@ def main():
             _, labels_gt = torch.max(gt, dim=3)
             _, labels2d = torch.max(sem2d, dim=3)
             _, labels3d = torch.max(sem3d, dim=3)
-            idx = torch.logical_or((labels2d == labels_gt), (labels3d == labels_gt))
+            idx_2d = (labels2d == labels_gt)
+            idx_3d = (labels3d == labels_gt)
+            idx = torch.logical_or(idx_2d, idx_3d)
+            non_zero_vx = num_voxels.view(-1).nonzero().squeeze()
 
             # Build gt for binary loss
-            bin_gt = -torch.ones(idx.size()).to(device)
-            bin_gt[(labels2d == labels_gt)] = 1
-            bin_gt[(labels3d == labels_gt)] = 0
+            bin_gt_2d = torch.zeros(idx.size(), dtype=torch.float).to(device)
+            bin_gt_3d = torch.zeros(idx.size(), dtype=torch.float).to(device)
 
-            bin_gt = bin_gt[bin_gt != -1]
+            bin_gt_2d[idx_2d] = 1
+            bin_gt_3d[idx_3d] = 1
+
+
+            bin_gt_2d = bin_gt_2d.view(-1, bin_gt_2d.shape[2])[non_zero_vx,:].view(-1)
+            bin_gt_3d = bin_gt_3d.view(-1, bin_gt_3d.shape[2])[non_zero_vx,:].view(-1)
+
+            f_ids = []
+            for t, id in enumerate(num_voxels.view(-1)[non_zero_vx]):
+                f_ids.append(np.arange(10*t, id+10*t))
+            f_ids = np.concatenate(f_ids) # list of arrays -> array
+            bin_gt_2d = bin_gt_2d[f_ids]
+            bin_gt_3d = bin_gt_3d[f_ids]
 
             att_mask = model(input, coors)
 
@@ -102,27 +118,32 @@ def main():
             f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
             # Loss
-            train_loss = build_loss(att_mask, bin_gt, idx)
+            aux_mask = att_mask.view(-1,att_mask.size(2), att_mask.size(3))[non_zero_vx,:,:].view(-1,2)
+            aux_mask = aux_mask[f_ids]
+            train_loss3d, train_loss2d = build_loss(aux_mask, bin_gt_2d, bin_gt_3d)
+            train_loss = train_loss2d + train_loss3d
 
             train_loss.backward()
             optimizer.step()
 
             rloss += train_loss.item()
+            rloss2d += train_loss2d.item()
+            rloss3d += train_loss3d.item()
 
             optimizer.zero_grad()
             pbar.update(1)
         pbar.close()
 
-        print('Training, epoch {}, loss {}'.format(epoch, rloss/len(trainloader)))
-
-        train_writer.add_scalar('loss', rloss/len(trainloader), epoch)
-        train_writer.close()
-
         if epoch % val_rate == 0:
             print('validating epoch {}'.format(epoch))
             model.eval()
             rloss_val = 0.0
+            rloss_val2d = 0.0
+            rloss_val3d = 0.0
             ious = np.zeros((len(valloader), num_classes-1))
+            accs_2d_val = np.zeros(len(valloader), dtype=np.float32)
+            accs_3d_val = np.zeros(len(valloader), dtype=np.float32)
+            pbar = tqdm(total=len(valloader))
             with torch.no_grad():
                 for v, data in enumerate(valloader):
                     num_voxels = data['voxel_stats']
@@ -138,14 +159,27 @@ def main():
                     _, labels_gt = torch.max(gt, dim=3)
                     _, labels2d = torch.max(sem2d, dim=3)
                     _, labels3d = torch.max(sem3d, dim=3)
-                    idx = torch.logical_or((labels2d == labels_gt), (labels3d == labels_gt))
+                    idx_2d = (labels2d == labels_gt)
+                    idx_3d = (labels3d == labels_gt)
+                    idx = torch.logical_or(idx_2d, idx_3d)
+                    non_zero_vx = num_voxels.view(-1).nonzero().squeeze()
 
                     # Build gt for binary loss
-                    bin_gt = -torch.ones(idx.size()).to(device)
-                    bin_gt[(labels2d == labels_gt)] = 1
-                    bin_gt[(labels3d == labels_gt)] = 0
+                    bin_gt_2d = torch.zeros(idx.size(), dtype=torch.float).to(device)
+                    bin_gt_3d = torch.zeros(idx.size(), dtype=torch.float).to(device)
 
-                    bin_gt = bin_gt[bin_gt != -1]
+                    bin_gt_2d[idx_2d] = 1
+                    bin_gt_3d[idx_3d] = 1
+
+                    bin_gt_2d = bin_gt_2d.view(-1, bin_gt_2d.shape[2])[non_zero_vx,:].view(-1)
+                    bin_gt_3d = bin_gt_3d.view(-1, bin_gt_3d.shape[2])[non_zero_vx,:].view(-1)
+
+                    f_ids = []
+                    for t, id in enumerate(num_voxels.view(-1)[non_zero_vx]):
+                        f_ids.append(np.arange(10*t, id+10*t))
+                    f_ids = np.concatenate(f_ids) # list of arrays -> array
+                    bin_gt_2d = bin_gt_2d[f_ids]
+                    bin_gt_3d = bin_gt_3d[f_ids]
 
                     # Onehot with scores -> onehot with 1s
                     aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
@@ -154,11 +188,31 @@ def main():
                     f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
                     # Loss
-                    val_loss = build_loss(att_mask, bin_gt, idx)
+                    aux_mask = att_mask.view(-1,att_mask.size(2), att_mask.size(3))[non_zero_vx,:,:].view(-1,2)
+                    aux_mask = aux_mask[f_ids]
+                    val_loss3d, val_loss2d = build_loss(aux_mask, bin_gt_2d, bin_gt_3d)
+                    val_loss = val_loss2d + val_loss3d
                     rloss_val += val_loss.item()
+                    rloss_val2d += val_loss2d.item()
+                    rloss_val3d += val_loss3d.item()
+
+                    # Bin Acc
+                    aux_att_3d = aux_mask[:,0]
+                    aux_att_2d = aux_mask[:,1]
+                    aux_att_3d[aux_att_3d >= 0.5] = 1
+                    aux_att_3d[aux_att_3d < 0.5] = 0
+                    aux_att_2d[aux_att_2d >= 0.5] = 1
+                    aux_att_2d[aux_att_2d < 0.5] = 0
+
+                    if len(aux_att_2d) != 0:
+                        accs_2d_val[v] = (aux_att_2d==bin_gt_2d).sum()/len(aux_att_2d)
+                    if len(aux_att_3d) != 0:
+                        accs_3d_val[v] = (aux_att_3d==bin_gt_3d).sum()/len(aux_att_3d)
 
                     # IoU
                     ious[v] = iou(f, gt, num_classes, ignore=0)
+                    pbar.update(1)
+                pbar.close()
 
                 aiou = 0
                 for o in range(ious.shape[1]):
@@ -176,10 +230,16 @@ def main():
                     last_mAiou = mAiou
 
                 val_writer.add_scalar('iou', mAiou, epoch)
-                val_writer.add_scalar('loss', rloss_val/len(valloader), epoch)
+                val_writer.add_scalar('loss/total', rloss_val/len(valloader), epoch)
+                val_writer.add_scalar('loss/sem2d', rloss_val2d/len(valloader), epoch)
+                val_writer.add_scalar('loss/sem3d', rloss_val3d/len(valloader), epoch)
+                val_writer.add_scalar('metrics/acc_2d', np.mean(accs_2d_val)*100, epoch)
+                val_writer.add_scalar('metrics/acc_3d', np.mean(accs_3d_val)*100, epoch)
                 val_writer.close()
 
                 rloss_val = 0.0
+                rloss_val2d = 0.0
+                rloss_val3d = 0.0
 
 if __name__ == '__main__':
     main()
