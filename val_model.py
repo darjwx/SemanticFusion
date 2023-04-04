@@ -43,6 +43,7 @@ def main():
     gt_map = cfg['gt_map']
     sem_map = cfg['sem_map']
     classes = cfg['classes']
+    offline_loader = cfg['training_params']['offline_loader']
 
     model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
@@ -50,7 +51,7 @@ def main():
     # Load model
     model.load_state_dict(torch.load(args.model))
 
-    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
+    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map, offline_loader)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
     digits = int(math.log10(len(valloader)))+1
 

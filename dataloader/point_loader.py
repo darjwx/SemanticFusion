@@ -151,80 +151,88 @@ def generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt, n
 
 class PointLoader(Dataset):
     def __init__(self, dataset, data, voxel_size, max_num_points, max_voxels, input_size,\
-                 num_classes, pc_range, target_grid_size, gt_map, sem_map):
+                 num_classes, pc_range, target_grid_size, gt_map, sem_map, offline=False):
 
         infos = []
         with open(data, 'rb') as f:
             self.infos = pickle.load(f)
 
-        self.voxel_size = np.array(voxel_size)
-        self.max_num_points = max_num_points
-        self.max_voxels = max_voxels
-        self.input_size = input_size
-        self.num_classes = num_classes
-        self.pc_range = pc_range
-        self.gt_map = gt_map
-        self.sem_map = sem_map
-        self.dataset = dataset
+        self.offline = offline
+        if not self.offline:
+            self.voxel_size = np.array(voxel_size)
+            self.max_num_points = max_num_points
+            self.max_voxels = max_voxels
+            self.input_size = input_size
+            self.num_classes = num_classes
+            self.pc_range = pc_range
+            self.gt_map = gt_map
+            self.sem_map = sem_map
+            self.dataset = dataset
 
-        # Voxels variables
-        self.minxyz = np.array([self.pc_range[0], self.pc_range[2], self.pc_range[4]]).astype(int)
-        self.grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
-        self.grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
-        self.grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
-        self.pc_grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
+            # Voxels variables
+            self.minxyz = np.array([self.pc_range[0], self.pc_range[2], self.pc_range[4]]).astype(int)
+            self.grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
+            self.grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
+            self.grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
+            self.pc_grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
 
-        self.target_grid_size = np.array(target_grid_size).astype(int)
-        self.min_grid_size = ((self.pc_grid_size - self.target_grid_size)/2).astype(int)
-        self.max_grid_size = (self.min_grid_size + self.target_grid_size).astype(int)
-        self.grid_size = self.pc_grid_size[0]*self.pc_grid_size[1]*self.pc_grid_size[2]
+            self.target_grid_size = np.array(target_grid_size).astype(int)
+            self.min_grid_size = ((self.pc_grid_size - self.target_grid_size)/2).astype(int)
+            self.max_grid_size = (self.min_grid_size + self.target_grid_size).astype(int)
+            self.grid_size = self.pc_grid_size[0]*self.pc_grid_size[1]*self.pc_grid_size[2]
 
     def __len__(self):
         return np.shape(self.infos)[0]
 
     def __getitem__(self, idx):
 
-        raw_cloud, gt, fov = datasets[self.dataset](idx, self.infos)
+        if not self.offline:
+            raw_cloud, gt, fov = datasets[self.dataset](idx, self.infos)
 
-        sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
-        sem2d = sem2d[fov]
-        scores2d = sem2d[:,1]
-        classes2d = sem2d[:,0].astype(np.uint8)
+            sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
+            sem2d = sem2d[fov]
+            scores2d = sem2d[:,1]
+            classes2d = sem2d[:,0].astype(np.uint8)
 
-        sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 2)
-        sem3d = sem3d[fov]
-        scores3d = sem3d[:,1]
-        classes3d = sem3d[:,0]
-        classes3d = np.vectorize(self.sem_map.__getitem__)(classes3d)
+            sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 2)
+            sem3d = sem3d[fov]
+            scores3d = sem3d[:,1]
+            classes3d = sem3d[:,0]
+            classes3d = np.vectorize(self.sem_map.__getitem__)(classes3d)
 
-        # Onehot with scores
-        sem2d_onehot = np.zeros((classes2d.shape[0], self.num_classes))
-        sem2d_onehot[np.arange(classes2d.shape[0]),classes2d] = scores2d
-        sem3d_onehot = np.zeros((classes3d.shape[0], self.num_classes))
-        sem3d_onehot[np.arange(classes3d.shape[0]),classes3d] = scores3d
+            # Onehot with scores
+            sem2d_onehot = np.zeros((classes2d.shape[0], self.num_classes))
+            sem2d_onehot[np.arange(classes2d.shape[0]),classes2d] = scores2d
+            sem3d_onehot = np.zeros((classes3d.shape[0], self.num_classes))
+            sem3d_onehot[np.arange(classes3d.shape[0]),classes3d] = scores3d
 
-        # Concat vectors
-        aux = np.concatenate((raw_cloud, sem2d_onehot), 1)
-        data = np.concatenate((aux, sem3d_onehot), 1)
+            # Concat vectors
+            aux = np.concatenate((raw_cloud, sem2d_onehot), 1)
+            data = np.concatenate((aux, sem3d_onehot), 1)
 
-        gt = np.vectorize(self.gt_map.__getitem__)(gt)
+            gt = np.vectorize(self.gt_map.__getitem__)(gt)
 
-        gt_onehot = np.zeros((gt.shape[0], self.num_classes))
-        gt_onehot[np.arange(gt.shape[0]),gt] = 1
+            gt_onehot = np.zeros((gt.shape[0], self.num_classes))
+            gt_onehot[np.arange(gt.shape[0]),gt] = 1
 
-        # Filter data with voxels
-        input_data, input_gt, coors, voxels_c3d = self.generate_voxels(data, gt_onehot, classes3d)
+            # Filter data with voxels
+            input_data, input_gt, coors, voxels_c3d, num_voxels = self.generate_voxels(data, gt_onehot, classes3d)
 
-        # Tensors
-        input_data = torch.from_numpy(input_data)
-        input_gt = torch.from_numpy(input_gt)
-        voxels_c3d = torch.from_numpy(voxels_c3d)
-        misc = {
-            'seq': self.infos[idx]['sequence'],
-            'frame': self.infos[idx]['frame_idx']
-        }
+            # Tensors
+            input_data = torch.from_numpy(input_data)
+            input_gt = torch.from_numpy(input_gt)
+            voxels_c3d = torch.from_numpy(voxels_c3d)
+            misc = {
+                'seq': self.infos[idx]['sequence'],
+                'frame': self.infos[idx]['frame_idx']
+            }
 
-        train = {'c3d': voxels_c3d.float(), 'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
+            train = {'c3d': voxels_c3d.float(), 'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
+        else:
+            import pickle
+            import gzip
+            with gzip.open(self.infos[idx]['pickle'], 'rb') as pkl:
+                train = pickle.load(pkl)
 
         return train
 

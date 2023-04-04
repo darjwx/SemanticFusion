@@ -4,6 +4,7 @@ import os
 import fnmatch
 import pickle
 from utils.project_points import project_points
+from utils.gen_offline_data import gen_data
 
 class PandasetDataset():
     def __init__(self, cfg, split='train'):
@@ -32,6 +33,7 @@ class PandasetDataset():
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'camera', c, ("{:02d}.png".format(idx))) for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
+                     'pickle': os.path.join(self.cfg['paths']['pickle'], ("{}_{:02d}.pkl.gz".format(seq, idx))),
                      'gt': os.path.join(self.cfg['paths']['source'], seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
                     } for idx in range(num_samples)]
             infos.extend(info)
@@ -73,6 +75,7 @@ class CarlaDataset():
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'], seq, c, f'{self.frames[seq][idx][1]}.png') for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], seq, f'{idx}.bin'),
+                     'pickle': os.path.join(self.cfg['paths']['pickle'], ("{}_{}.pkl.gz".format(seq, idx))),
                     } for idx in range(num_samples)]
             infos.extend(info)
 
@@ -105,6 +108,7 @@ class KittiDataset():
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'image_2', ("{:06d}.png".format(idx))) for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{:06d}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:06d}.bin".format(seq, idx))),
+                     'pickle': os.path.join(self.cfg['paths']['pickle'], ("{}_{:06d}.pkl.gz".format(seq, idx))),
                      'gt': os.path.join(self.cfg['paths']['source'], seq, 'labels', ("{:06d}.label".format(idx)))
                     } for idx in range(num_samples)]
             infos.extend(info)
@@ -134,6 +138,10 @@ def create_infos(dataset_cfg, save_path):
             print('Building {} pointclouds with 2d labels'.format(split))
             project_points(infos, cfg['color_map'], name)
 
+    if args.offline_data:
+        print('Saving voxel input data')
+        gen_data(cfg)
+
     print('---------------Data preparation Done---------------')
 
 
@@ -142,7 +150,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, default='configs/pandaset.yaml', help='Configs path')
     parser.add_argument('--save_path', type=str, default='datasets/pandaset/out', help='Output path')
-    parser.add_argument('--build_sem2d', action='store_true', help='Wheter to build pointclouds with labels from 2d semantic images')
+    parser.add_argument('--build_sem2d', action='store_true', help='Whether to build pointclouds with labels from 2d semantic images')
+    parser.add_argument('--offline_data', action='store_true', help='Whether save voxels to pickle files')
 
     args = parser.parse_args()
 

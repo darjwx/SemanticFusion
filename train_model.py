@@ -51,13 +51,14 @@ def main():
     classes = cfg['classes']
     model_path = cfg['paths']['model_path']
     val_rate = cfg['training_params']['val_rate']
+    offline_loader = cfg['training_params']['offline_loader']
 
     model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 
-    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
-    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
+    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map, offline_loader)
+    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map, offline_loader)
 
     trainloader = DataLoader(dataset_train, batch_size, shuffle=True, num_workers=4)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)

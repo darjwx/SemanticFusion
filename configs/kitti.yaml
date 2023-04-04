@@ -11,6 +11,7 @@ training_params:
   pc_range: [0, 80, -70, 70, -3, 3] #xmin, xmax, ymin, ymax, zmin, zmax
   sparse_shape: [400, 350, 30]
   val_rate: 1 #epochs
+  offline_loader: True
 
 # Kitti odometry
 sequences:
@@ -23,6 +24,7 @@ paths:
   sem_images: 'datasets/kitti/semantic_images/sequences'
   sem2d: 'datasets/kitti/sem2d'
   sem3d: 'datasets/kitti/sem3d'
+  pickle: 'datasets/kitti/offline_data'
   data_train: 'datasets/kitti/out/kitti_infos_train.pkl'
   data_val: 'datasets/kitti/out/kitti_infos_val.pkl'
   model_path: 'out/kitti/models/test/model-save.pt'
@@ -104,4 +106,3 @@ color_map:
   '[0,80,100]': 0 # Train
   '[0,0,230]': 3 # Motorcycle
   '[119,11,32]': 2 # Bicycle
-
