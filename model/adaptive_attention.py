@@ -14,6 +14,15 @@ class PointNetConv(nn.Module):
         if self.k_size != None:
             self.max = nn.MaxPool2d((1, k_size))
 
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Conv2d):
+            nn.init.kaiming_normal_(m.weight, mode="fan_out")
+        elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
+
     def forward(self, x):
         # Conv: (batch) x voxel x ch x points
         x = self.conv1(x)
@@ -33,6 +42,17 @@ class PointNet(nn.Module):
 
         self.k_size = k_size
         self.max = nn.MaxPool1d(k_size)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            m.weight.data.normal_(mean=0.0, std=1.0)
+            if m.bias is not None:
+                m.bias.data.zero_()
+        elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         # (batch) x voxel x ch
@@ -75,6 +95,20 @@ class Model(nn.Module):
         self.lr = nn.LeakyReLU()
         self.conv2 = nn.Conv2d(64, 1, 1, bias=False)
         self.bn2 = nn.BatchNorm2d(1)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            m.weight.data.normal_(mean=0.0, std=1.0)
+            if m.bias is not None:
+                m.bias.data.zero_()
+        elif isinstance(m, nn.Conv2d):
+            nn.init.kaiming_normal_(m.weight, mode="fan_out")
+        elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
+
 
     def forward(self, x, coors):
         # x: (batch) x voxel x points x ch
