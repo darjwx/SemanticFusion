@@ -12,6 +12,7 @@ training_params:
   sparse_shape: [800, 500, 35]
   val_rate: 1 #epochs
   offline_loader: False
+  train_metrics: False # Whether to upload train iou, loss and acc metrics to tb
 
 sequences:
   train: ['seq1', 'seq2', 'seq3', 'seq4', 'seq5']

@@ -12,6 +12,7 @@ training_params:
   sparse_shape: [800, 500, 35]
   val_rate: 1 #epochs
   offline_loader: False
+  train_metrics: False # Whether to upload train iou, loss and acc metrics to tb
 
 sequences:
   train: ['035', '052', '105', '030', '113', '002', '084', '028', '119', '044', '005', '102', '034', '077', '064', '067', '058', '019', '015', '037', '095', '120', '066', '023', '071', '117', '098', '139', '038', '116', '046', '088', '089', '040', '033', '016', '024', '122', '039', '158', '069', '124', '123', '106'] # ~60% of the sequences, randomly chosen

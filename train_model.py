@@ -52,6 +52,7 @@ def main():
     model_path = cfg['paths']['model_path']
     val_rate = cfg['training_params']['val_rate']
     offline_loader = cfg['training_params']['offline_loader']
+    train_metrics = cfg['training_params']['train_metrics']
 
     model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
     model = model.to(device)
@@ -73,6 +74,12 @@ def main():
         rloss = 0.0
         rloss2d = 0.0
         rloss3d = 0.0
+
+        if train_metrics:
+            ious_train = np.zeros((len(trainloader), num_classes-1))
+            accs_2d_train = np.zeros(len(trainloader), dtype=np.float32)
+            accs_3d_train = np.zeros(len(trainloader), dtype=np.float32)
+
         for i, d in enumerate(trainloader):
             num_voxels = d['voxel_stats']
             input = d['input_data'].to(device)
@@ -126,6 +133,23 @@ def main():
             train_loss.backward()
             optimizer.step()
 
+            if train_metrics:
+                # Bin Acc
+                aux_att_3d = aux_mask[:,0]
+                aux_att_2d = aux_mask[:,1]
+                aux_att_3d[aux_att_3d >= 0.5] = 1
+                aux_att_3d[aux_att_3d < 0.5] = 0
+                aux_att_2d[aux_att_2d >= 0.5] = 1
+                aux_att_2d[aux_att_2d < 0.5] = 0
+
+                if len(aux_att_2d) != 0:
+                    accs_2d_train[i] = (aux_att_2d==bin_gt_2d).sum()/len(aux_att_2d)
+                if len(aux_att_3d) != 0:
+                    accs_3d_train[i] = (aux_att_3d==bin_gt_3d).sum()/len(aux_att_3d)
+
+                # IoU
+                ious_train[i] = iou(f, gt, num_classes, ignore=0)
+
             rloss += train_loss.item()
             rloss2d += train_loss2d.item()
             rloss3d += train_loss3d.item()
@@ -133,6 +157,22 @@ def main():
             optimizer.zero_grad()
             pbar.update(1)
         pbar.close()
+
+        if train_metrics:
+            aiou = 0
+            for o in range(ious_train.shape[1]):
+                aiou += np.mean(ious_train[:,o])
+            mAiou = aiou/(num_classes-1)
+
+            print('Training, epoch {}, loss {}'.format(epoch, rloss/len(trainloader)))
+
+            train_writer.add_scalar('iou', mAiou, epoch)
+            train_writer.add_scalar('loss/total', rloss/len(trainloader), epoch)
+            train_writer.add_scalar('loss/sem2d', rloss2d/len(trainloader), epoch)
+            train_writer.add_scalar('loss/sem3d', rloss3d/len(trainloader), epoch)
+            train_writer.add_scalar('metrics/acc_2d', np.mean(accs_2d_train)*100, epoch)
+            train_writer.add_scalar('metrics/acc_3d', np.mean(accs_3d_train)*100, epoch)
+            train_writer.close()
 
         if epoch % val_rate == 0:
             print('validating epoch {}'.format(epoch))

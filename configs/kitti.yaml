@@ -12,6 +12,7 @@ training_params:
   sparse_shape: [400, 350, 30]
   val_rate: 1 #epochs
   offline_loader: True
+  train_metrics: True # Whether to upload train iou, loss and acc metrics to tb
 
 # Kitti odometry
 sequences:
