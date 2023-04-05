@@ -54,7 +54,7 @@ def main():
     offline_loader = cfg['training_params']['offline_loader']
     train_metrics = cfg['training_params']['train_metrics']
 
-    model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
+    model = Model(input_size, max_num_points, max_voxels, sparse_shape)
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
 

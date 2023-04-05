@@ -2,7 +2,7 @@ training_params:
   name: 'kitti'
   lr: 0.0001
   epochs: 15
-  batch_size: 1
+  batch_size: 4
   voxel_size: [0.2, 0.2, 0.2] #x, y, z
   max_num_points: 10
   max_voxels: 20000

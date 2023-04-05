@@ -45,7 +45,7 @@ def main():
     classes = cfg['classes']
     offline_loader = cfg['training_params']['offline_loader']
 
-    model = Model(input_size, max_num_points, max_voxels, sparse_shape, batch_size)
+    model = Model(input_size, max_num_points, max_voxels, sparse_shape)
     model = model.to(device)
 
     # Load model

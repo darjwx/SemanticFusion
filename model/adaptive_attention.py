@@ -64,12 +64,11 @@ class PointNet(nn.Module):
         return x
 
 class Model(nn.Module):
-    def __init__(self, m, num_points, max_voxels, sparse_shape, batch_size,in_filters=[16, 32, 64], out_filters=[32, 64, 128]):
+    def __init__(self, m, num_points, max_voxels, sparse_shape, in_filters=[16, 32, 64], out_filters=[32, 64, 128]):
         super(Model, self).__init__()
         self.num_points = num_points
         self.max_voxels = max_voxels
         self.sparse_shape = sparse_shape
-        self.batch_size = batch_size
 
         # PointNets
         # PN1: Point features
@@ -119,16 +118,17 @@ class Model(nn.Module):
         # PointNetConv with max pool -> (batch) x ch x voxels
 
         # Add batch idx, needed for SparseConveTensor
-        bs = np.arange(self.batch_size)
+        batch_size = coors.size(0)
+        bs = np.arange(batch_size)
         batch_idx = np.repeat(bs, x1.size(2))
-        coors[:,:,0] = torch.from_numpy(batch_idx).reshape(self.batch_size,x1.size(2))
+        coors[:,:,0] = torch.from_numpy(batch_idx).reshape(batch_size, x1.size(2))
 
         # Sparse tensor and conv3d
-        exp_voxels = spconv.SparseConvTensor(x1.reshape(-1,16), coors.reshape(-1,4), self.sparse_shape, self.batch_size)
+        exp_voxels = spconv.SparseConvTensor(x1.reshape(-1,16), coors.reshape(-1,4), self.sparse_shape, batch_size)
         for conv in self.conv3d:
             exp_voxels = conv(exp_voxels)
 
-        f = exp_voxels.features.view(self.batch_size,self.max_voxels,self.num_points,128).transpose(3,2)
+        f = exp_voxels.features.view(batch_size,self.max_voxels,self.num_points,128).transpose(3,2)
         f = self.max(f)
 
         # PointNet for global features -> (batch) x ch
