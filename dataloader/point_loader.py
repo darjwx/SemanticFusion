@@ -142,6 +142,7 @@ def generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt, n
     for i in mask:
         d = max_num_points - num_points[i]
         voxels[i,num_points[i]:max_num_points] = np.repeat(np.expand_dims(voxels[i,num_points[i]-1], axis=0), d).reshape(-1,d).T
+        voxels[i,num_points[i]:max_num_points,3:] = -1 # -1 class to ignore duplicated points at loss and IoU level
 
     # Final shape: Voxel x [xyz, sem2d, sem3d],
     #                      [xyz, sem2d, sem3d],

@@ -91,12 +91,13 @@ def main():
 
             # Ignore preds that will never match gt
             _, labels_gt = torch.max(gt, dim=3)
-            _, labels2d = torch.max(sem2d, dim=3)
+            values, labels2d = torch.max(sem2d, dim=3)
             _, labels3d = torch.max(sem3d, dim=3)
             idx_2d = (labels2d == labels_gt)
             idx_3d = (labels3d == labels_gt)
             idx = torch.logical_or(idx_2d, idx_3d)
             non_zero_vx = num_voxels.view(-1).nonzero().squeeze()
+            values = values.view(-1, values.shape[2])[non_zero_vx,:].view(-1)
 
             # Build gt for binary loss
             bin_gt_2d = torch.zeros(idx.size(), dtype=torch.float).to(device)
@@ -109,24 +110,20 @@ def main():
             bin_gt_2d = bin_gt_2d.view(-1, bin_gt_2d.shape[2])[non_zero_vx,:].view(-1)
             bin_gt_3d = bin_gt_3d.view(-1, bin_gt_3d.shape[2])[non_zero_vx,:].view(-1)
 
-            f_ids = []
-            for t, id in enumerate(num_voxels.view(-1)[non_zero_vx]):
-                f_ids.append(np.arange(10*t, id+10*t))
-            f_ids = np.concatenate(f_ids) # list of arrays -> array
-            bin_gt_2d = bin_gt_2d[f_ids]
-            bin_gt_3d = bin_gt_3d[f_ids]
+            bin_gt_2d = bin_gt_2d[values != -1]
+            bin_gt_3d = bin_gt_3d[values != -1]
 
             att_mask = model(input, coors)
 
             # Onehot with scores -> onehot with 1s
             aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
-            sem2d_onehot = torch.where(sem2d != 0, aux, sem2d)
+            sem2d_onehot = torch.where(torch.logical_and(sem2d != 0, sem2d != -1), aux, sem2d)
             sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
             f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
             # Loss
             aux_mask = att_mask.view(-1,att_mask.size(2), att_mask.size(3))[non_zero_vx,:,:].view(-1,2)
-            aux_mask = aux_mask[f_ids]
+            aux_mask = aux_mask[values != -1]
             train_loss3d, train_loss2d = build_loss(aux_mask, bin_gt_2d, bin_gt_3d)
             train_loss = train_loss2d + train_loss3d
 
@@ -197,12 +194,13 @@ def main():
 
                     # Ignore preds that will never match gt
                     _, labels_gt = torch.max(gt, dim=3)
-                    _, labels2d = torch.max(sem2d, dim=3)
+                    values, labels2d = torch.max(sem2d, dim=3)
                     _, labels3d = torch.max(sem3d, dim=3)
                     idx_2d = (labels2d == labels_gt)
                     idx_3d = (labels3d == labels_gt)
                     idx = torch.logical_or(idx_2d, idx_3d)
                     non_zero_vx = num_voxels.view(-1).nonzero().squeeze()
+                    values = values.view(-1, values.shape[2])[non_zero_vx,:].view(-1)
 
                     # Build gt for binary loss
                     bin_gt_2d = torch.zeros(idx.size(), dtype=torch.float).to(device)
@@ -214,22 +212,18 @@ def main():
                     bin_gt_2d = bin_gt_2d.view(-1, bin_gt_2d.shape[2])[non_zero_vx,:].view(-1)
                     bin_gt_3d = bin_gt_3d.view(-1, bin_gt_3d.shape[2])[non_zero_vx,:].view(-1)
 
-                    f_ids = []
-                    for t, id in enumerate(num_voxels.view(-1)[non_zero_vx]):
-                        f_ids.append(np.arange(10*t, id+10*t))
-                    f_ids = np.concatenate(f_ids) # list of arrays -> array
-                    bin_gt_2d = bin_gt_2d[f_ids]
-                    bin_gt_3d = bin_gt_3d[f_ids]
+                    bin_gt_2d = bin_gt_2d[values != -1]
+                    bin_gt_3d = bin_gt_3d[values != -1]
 
                     # Onehot with scores -> onehot with 1s
                     aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
-                    sem2d_onehot = torch.where(sem2d != 0, aux, sem2d)
+                    sem2d_onehot = torch.where(torch.logical_and(sem2d != 0, sem2d != -1), aux, sem2d)
                     sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
                     f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
                     # Loss
                     aux_mask = att_mask.view(-1,att_mask.size(2), att_mask.size(3))[non_zero_vx,:,:].view(-1,2)
-                    aux_mask = aux_mask[f_ids]
+                    aux_mask = aux_mask[values != -1]
                     val_loss3d, val_loss2d = build_loss(aux_mask, bin_gt_2d, bin_gt_3d)
                     val_loss = val_loss2d + val_loss3d
                     rloss_val += val_loss.item()

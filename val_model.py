@@ -79,7 +79,11 @@ def main():
             elif name == 'kitti':
                 frame = frame.zfill(6)
 
-            f = fusion_voxels(raw_cloud, sem2d, sem3d, att_mask)
+            # Onehot with scores -> onehot with 1s
+            aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
+            sem2d_onehot = torch.where(torch.logical_and(sem2d != 0, sem2d != -1), aux, sem2d)
+            sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
+            f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
 
             # IoU
             ious[d] = iou(f, gt, num_classes, ignore=0)
