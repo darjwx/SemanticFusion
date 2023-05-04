@@ -69,7 +69,7 @@ def main():
             raw_cloud = input[:,:,:,:3]
             sem2d = input[:,:,:,3:num_classes+3]
             sem3d = input[:,:,:,num_classes+3:input_size]
-            att_mask = model(input, coors)
+            att_mask_3d, att_mask_2d = model(input, coors)
 
             misc = data['misc']
             seq = misc['seq'][0]
@@ -83,7 +83,7 @@ def main():
             aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
             sem2d_onehot = torch.where(torch.logical_and(sem2d != 0, sem2d != -1), aux, sem2d)
             sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
-            f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
+            f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask_2d, att_mask_3d)
 
             # IoU
             ious[d] = iou(f, gt, num_classes, ignore=0)
@@ -107,7 +107,8 @@ def main():
             val_results['labels'] = labels
             val_results['points'] = points
             val_results['gt'] = labels_gt
-            val_results['att_mask'] = att_mask.view(-1).cpu().numpy()
+            val_results['att_mask_2d'] = att_mask_2d.view(-1).cpu().numpy()
+            val_results['att_mask_3d'] = att_mask_3d.view(-1).cpu().numpy()
             val_results['frame'] = frame
             val_results['seq'] = seq
             val_results['c3d'] = c3d

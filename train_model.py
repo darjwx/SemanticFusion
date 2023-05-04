@@ -81,7 +81,7 @@ def main():
             accs_3d_train = np.zeros(len(trainloader), dtype=np.float32)
 
         for i, d in enumerate(trainloader):
-            num_voxels = d['voxel_stats']
+            num_voxels = d['voxel_stats'].to(device)
             input = d['input_data'].to(device)
             gt = d['gt'].to(device)
             coors = d['coors'].to(device)
@@ -98,6 +98,7 @@ def main():
             idx = torch.logical_or(idx_2d, idx_3d)
             non_zero_vx = num_voxels.view(-1).nonzero().squeeze()
             values = values.view(-1, values.shape[2])[non_zero_vx,:].view(-1)
+            values = torch.nonzero(values != -1).squeeze()
 
             # Build gt for binary loss
             bin_gt_2d = torch.zeros(idx.size(), dtype=torch.float).to(device)
@@ -110,21 +111,27 @@ def main():
             bin_gt_2d = bin_gt_2d.view(-1, bin_gt_2d.shape[2])[non_zero_vx,:].view(-1)
             bin_gt_3d = bin_gt_3d.view(-1, bin_gt_3d.shape[2])[non_zero_vx,:].view(-1)
 
-            bin_gt_2d = bin_gt_2d[values != -1]
-            bin_gt_3d = bin_gt_3d[values != -1]
+            bin_gt_2d = bin_gt_2d[values]
+            bin_gt_3d = bin_gt_3d[values]
 
-            att_mask = model(input, coors)
+            att_mask_3d, att_mask_2d = model(input, coors)
 
             # Onehot with scores -> onehot with 1s
             aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
             sem2d_onehot = torch.where(torch.logical_and(sem2d != 0, sem2d != -1), aux, sem2d)
             sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
-            f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
+            f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask_2d, att_mask_3d)
 
             # Loss
-            aux_mask = att_mask.view(-1,att_mask.size(2), att_mask.size(3))[non_zero_vx,:,:].view(-1,2)
-            aux_mask = aux_mask[values != -1]
-            train_loss3d, train_loss2d = build_loss(aux_mask, bin_gt_2d, bin_gt_3d)
+            aux_mask_2d = att_mask_2d.view(-1,att_mask_2d.size(2))
+            aux_mask_2d = torch.index_select(aux_mask_2d, 0, non_zero_vx).view(-1)
+            aux_mask_2d = torch.index_select(aux_mask_2d, 0, values)
+
+            aux_mask_3d = att_mask_3d.view(-1,att_mask_3d.size(2))
+            aux_mask_3d = torch.index_select(aux_mask_3d, 0, non_zero_vx).view(-1)
+            aux_mask_3d = torch.index_select(aux_mask_3d, 0, values)
+
+            train_loss3d, train_loss2d = build_loss(aux_mask_2d, aux_mask_3d, bin_gt_2d, bin_gt_3d)
             train_loss = train_loss2d + train_loss3d
 
             train_loss.backward()
@@ -132,17 +139,15 @@ def main():
 
             if train_metrics:
                 # Bin Acc
-                aux_att_3d = aux_mask[:,0]
-                aux_att_2d = aux_mask[:,1]
-                aux_att_3d[aux_att_3d >= 0.5] = 1
-                aux_att_3d[aux_att_3d < 0.5] = 0
-                aux_att_2d[aux_att_2d >= 0.5] = 1
-                aux_att_2d[aux_att_2d < 0.5] = 0
+                aux_mask_3d[aux_mask_3d >= 0.5] = 1
+                aux_mask_3d[aux_mask_3d < 0.5] = 0
+                aux_mask_2d[aux_mask_2d >= 0.5] = 1
+                aux_mask_2d[aux_mask_2d < 0.5] = 0
 
-                if len(aux_att_2d) != 0:
-                    accs_2d_train[i] = (aux_att_2d==bin_gt_2d).sum()/len(aux_att_2d)
-                if len(aux_att_3d) != 0:
-                    accs_3d_train[i] = (aux_att_3d==bin_gt_3d).sum()/len(aux_att_3d)
+                if len(aux_mask_2d) != 0:
+                    accs_2d_train[i] = (aux_mask_2d==bin_gt_2d).sum()/len(aux_mask_2d)
+                if len(aux_mask_3d) != 0:
+                    accs_3d_train[i] = (aux_mask_3d==bin_gt_3d).sum()/len(aux_mask_3d)
 
                 # IoU
                 ious_train[i] = iou(f, gt, num_classes, ignore=0)
@@ -183,14 +188,14 @@ def main():
             pbar = tqdm(total=len(valloader))
             with torch.no_grad():
                 for v, data in enumerate(valloader):
-                    num_voxels = data['voxel_stats']
+                    num_voxels = data['voxel_stats'].to(device)
                     input = data['input_data'].to(device)
                     gt = data['gt'].to(device)
                     coors = data['coors'].to(device)
                     raw_cloud = input[:,:,:,:3]
                     sem2d = input[:,:,:,3:num_classes+3]
                     sem3d = input[:,:,:,num_classes+3:input_size]
-                    att_mask = model(input, coors)
+                    att_mask_3d, att_mask_2d = model(input, coors)
 
                     # Ignore preds that will never match gt
                     _, labels_gt = torch.max(gt, dim=3)
@@ -201,6 +206,7 @@ def main():
                     idx = torch.logical_or(idx_2d, idx_3d)
                     non_zero_vx = num_voxels.view(-1).nonzero().squeeze()
                     values = values.view(-1, values.shape[2])[non_zero_vx,:].view(-1)
+                    values = torch.nonzero(values != -1).squeeze()
 
                     # Build gt for binary loss
                     bin_gt_2d = torch.zeros(idx.size(), dtype=torch.float).to(device)
@@ -212,36 +218,40 @@ def main():
                     bin_gt_2d = bin_gt_2d.view(-1, bin_gt_2d.shape[2])[non_zero_vx,:].view(-1)
                     bin_gt_3d = bin_gt_3d.view(-1, bin_gt_3d.shape[2])[non_zero_vx,:].view(-1)
 
-                    bin_gt_2d = bin_gt_2d[values != -1]
-                    bin_gt_3d = bin_gt_3d[values != -1]
+                    bin_gt_2d = bin_gt_2d[values]
+                    bin_gt_3d = bin_gt_3d[values]
 
                     # Onehot with scores -> onehot with 1s
                     aux = torch.ones(sem2d.shape, dtype=torch.float32).to(device)
                     sem2d_onehot = torch.where(torch.logical_and(sem2d != 0, sem2d != -1), aux, sem2d)
                     sem3d_onehot = torch.where(sem3d != 0, aux, sem3d)
-                    f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask)
+                    f = fusion_voxels(raw_cloud, sem2d_onehot, sem3d_onehot, att_mask_2d, att_mask_3d)
 
                     # Loss
-                    aux_mask = att_mask.view(-1,att_mask.size(2), att_mask.size(3))[non_zero_vx,:,:].view(-1,2)
-                    aux_mask = aux_mask[values != -1]
-                    val_loss3d, val_loss2d = build_loss(aux_mask, bin_gt_2d, bin_gt_3d)
+                    aux_mask_2d = att_mask_2d.view(-1,att_mask_2d.size(2))
+                    aux_mask_2d = torch.index_select(aux_mask_2d, 0, non_zero_vx).view(-1)
+                    aux_mask_2d = torch.index_select(aux_mask_2d, 0, values)
+
+                    aux_mask_3d = att_mask_3d.view(-1,att_mask_3d.size(2))
+                    aux_mask_3d = torch.index_select(aux_mask_3d, 0, non_zero_vx).view(-1)
+                    aux_mask_3d = torch.index_select(aux_mask_3d, 0, values)
+
+                    val_loss3d, val_loss2d = build_loss(aux_mask_2d, aux_mask_3d, bin_gt_2d, bin_gt_3d)
                     val_loss = val_loss2d + val_loss3d
                     rloss_val += val_loss.item()
                     rloss_val2d += val_loss2d.item()
                     rloss_val3d += val_loss3d.item()
 
                     # Bin Acc
-                    aux_att_3d = aux_mask[:,0]
-                    aux_att_2d = aux_mask[:,1]
-                    aux_att_3d[aux_att_3d >= 0.5] = 1
-                    aux_att_3d[aux_att_3d < 0.5] = 0
-                    aux_att_2d[aux_att_2d >= 0.5] = 1
-                    aux_att_2d[aux_att_2d < 0.5] = 0
+                    aux_mask_3d[aux_mask_3d >= 0.5] = 1
+                    aux_mask_3d[aux_mask_3d < 0.5] = 0
+                    aux_mask_2d[aux_mask_2d >= 0.5] = 1
+                    aux_mask_2d[aux_mask_2d < 0.5] = 0
 
-                    if len(aux_att_2d) != 0:
-                        accs_2d_val[v] = (aux_att_2d==bin_gt_2d).sum()/len(aux_att_2d)
-                    if len(aux_att_3d) != 0:
-                        accs_3d_val[v] = (aux_att_3d==bin_gt_3d).sum()/len(aux_att_3d)
+                    if len(aux_mask_2d) != 0:
+                        accs_2d_val[v] = (aux_mask_2d==bin_gt_2d).sum()/len(aux_mask_2d)
+                    if len(aux_mask_3d) != 0:
+                        accs_3d_val[v] = (aux_mask_3d==bin_gt_3d).sum()/len(aux_mask_3d)
 
                     # IoU
                     ious[v] = iou(f, gt, num_classes, ignore=0)

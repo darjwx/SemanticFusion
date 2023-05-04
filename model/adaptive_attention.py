@@ -158,19 +158,15 @@ class Model(nn.Module):
         y_2 = self.fc1_2(y)
         att_mask_1 = torch.sigmoid(y_1)
         att_mask_2 = torch.sigmoid(y_2)
-        att_mask = torch.cat((att_mask_1, att_mask_2), dim=3)
 
-        return att_mask
+        return att_mask_1, att_mask_2
 
-def fusion_voxels(raw_cloud, sem2d, sem3d, att_mask):
+def fusion_voxels(raw_cloud, sem2d, sem3d, att_mask_2d, att_mask_3d):
     # a = 2d semantics * attention_mask
     # b = 3d semantics * (1 - attention mask)
     # c = concat -> raw cloud, b+a
 
     # att_mask -> (batch) x voxels x points x num_classes
-    att_mask_2d = att_mask[:,:,:,1].unsqueeze(-1).expand(-1, -1, -1, sem2d.size(3))
-    att_mask_3d = att_mask[:,:,:,0].unsqueeze(-1).expand(-1, -1, -1, sem3d.size(3))
-
     a = torch.mul(sem2d,att_mask_2d)
     b = torch.mul(sem3d,att_mask_3d)
 
