@@ -41,7 +41,7 @@ class PointNet(nn.Module):
         self.lr = nn.LeakyReLU()
 
         self.k_size = k_size
-        self.max = nn.MaxPool1d(k_size)
+        #self.max = nn.MaxPool1d(k_size)
 
         self.apply(self._init_weights)
 
@@ -59,7 +59,8 @@ class PointNet(nn.Module):
         x = self.fc1(x)
         # BatchNorm expects batch x ch x voxel
         x = x.transpose(1,2)
-        x = self.max(self.lr(self.bn(x)))
+        maxp = nn.MaxPool1d(x.size(-1))
+        x = maxp(self.lr(self.bn(x)))
 
         return x
 
@@ -85,11 +86,11 @@ class Model(nn.Module):
             ))
         self.conv3d = nn.ModuleList(self.conv3d)
         self.max = nn.MaxPool2d((1,self.num_points))
-        self.pn3 = PointNet(128, 256, self.max_voxels)
+        #self.pn3 = PointNet(128, 256, self.max_voxels)
 
         # Conv layers
         # 192: 64+128+256 - point + voxel + global features
-        self.conv1 = nn.Conv2d(400, 256, 1, bias=False)
+        self.conv1 = nn.Conv2d(144, 256, 1, bias=False)
         self.bn1 = nn.BatchNorm2d(256)
         self.lr = nn.LeakyReLU()
         self.conv2 = nn.Conv2d(256, 128, 1, bias=False)
@@ -111,6 +112,7 @@ class Model(nn.Module):
 
 
     def forward(self, x, coors):
+        num_voxels = x.size(1)
         # x: (batch) x voxel x points x ch
         x = x.permute(0,3,1,2)
         # PointNetConv: (batch) x ch x voxels x points
@@ -124,24 +126,24 @@ class Model(nn.Module):
         coors[:,:,0] = torch.from_numpy(batch_idx).reshape(batch_size, x1.size(2))
 
         # Sparse tensor and conv3d
-        exp_voxels = spconv.SparseConvTensor(x1.reshape(-1,16), coors.reshape(-1,4), self.sparse_shape, batch_size)
+        exp_voxels = spconv.SparseConvTensor(x1.permute(0,2,3,1).reshape(-1,16), coors.reshape(-1,4), self.sparse_shape[::-1], batch_size)
         for conv in self.conv3d:
             exp_voxels = conv(exp_voxels)
 
-        f = exp_voxels.features.view(batch_size,self.max_voxels,self.num_points,128).transpose(3,2)
+        f = exp_voxels.features.view(batch_size,num_voxels,self.num_points,128).transpose(3,2)
         f = self.max(f)
 
         # PointNet for global features -> (batch) x ch
-        x3 = self.pn3(f.squeeze(-1))
+        #x3 = self.pn3(f.squeeze(-1))
 
         # Expand pn2 (batch x 128 x voxels) and pn3 (batch x 256) to match pn1
         f = f.transpose(1,2)
-        f = f.expand(-1, 128, self.max_voxels, self.num_points)
+        f = f.expand(-1, 128, num_voxels, self.num_points)
 
-        x3 = x3.unsqueeze(-1).expand(-1, 256, self.max_voxels, self.num_points)
+        #x3 = x3.unsqueeze(-1).expand(-1, 256, num_voxels, self.num_points)
 
         # Concat pn1, pn2 and pn3 outputs
-        y = torch.cat((x1,f,x3), dim=1)
+        y = torch.cat((x1,f), dim=1)
 
         # Conv + BatchNorm + ReLU
         # (batch) x ch x voxel x points

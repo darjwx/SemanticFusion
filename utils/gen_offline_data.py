@@ -11,7 +11,6 @@ def gen_data(cfg):
     name = cfg['training_params']['name']
     batch_size = 1 # batch size set to 1 to save individual files per frame
     voxel_size = cfg['training_params']['voxel_size']
-    sparse_shape = cfg['training_params']['sparse_shape']
     max_num_points = cfg['training_params']['max_num_points']
     max_voxels = cfg['training_params']['max_voxels']
     input_size = cfg['training_params']['input_size']
@@ -23,11 +22,12 @@ def gen_data(cfg):
     sem_map = cfg['sem_map']
     out = cfg['paths']['pickle']
 
-    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
-    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, sparse_shape, gt_map, sem_map)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map, device)
+    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map, device)
 
-    trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=4)
-    valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=4)
+    trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=0)
+    valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=0)
 
     print('Train voxels')
     pbar = tqdm(total=len(trainloader))

@@ -2,14 +2,13 @@ training_params:
   name: 'kitti'
   lr: 0.0001
   epochs: 15
-  batch_size: 4
+  batch_size: 1
   voxel_size: [0.2, 0.2, 0.2] #x, y, z
-  max_num_points: 10
-  max_voxels: 20000
+  max_num_points: 5
+  max_voxels: 15000
   input_size: 31 #xyz + num classes
   num_classes: 14
-  pc_range: [0, 80, -70, 70, -3, 3] #xmin, xmax, ymin, ymax, zmin, zmax
-  sparse_shape: [400, 350, 30]
+  pc_range: [0, -70, -3, 80, 70, 3] #xmin, ymin, zmin, xmax, ymax, zmax
   val_rate: 1 #epochs
   offline_loader: True
   train_metrics: True # Whether to upload train iou, loss and acc metrics to tb

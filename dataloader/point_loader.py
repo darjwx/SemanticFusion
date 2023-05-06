@@ -81,78 +81,9 @@ datasets = {
     'kitti': kitti_data
 }
 
-# Use jit compiler
-# Using jit: 15m per epoch
-# Plain python: 1h 10m per epoch
-@jit(nopython=True)
-def generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt, num_points, gt,\
-                          min_grid_size, max_grid_size, minxyz, max_voxels, max_num_points,\
-                          voxel_size, coors):
-    # data: [x,y,z,sem2d,sem3d]
-    # gt: [gt sem]
-    # Obtain number of voxels in xyz
-
-    for i in range(data.shape[0]):
-        # Transform coords to voxel space
-        cv = np.floor((data[i,:3] - minxyz.astype(np.float32)) / voxel_size.astype(np.float32)).astype(np.int32)
-
-        # Ignore points outside of range
-        if np.any(cv < min_grid_size) or np.any(cv >= max_grid_size):
-            continue
-
-        voxelid = voxelgrid[cv[2], cv[0], cv[1]]
-
-        if num_points[voxelid] < max_num_points:
-            voxels[voxelid, num_points[voxelid]] = data[i]
-            voxels_gt[voxelid, num_points[voxelid]] = gt[i]
-            voxels_c3d[voxelid, num_points[voxelid]] = c3d[i]
-
-        num_points[voxelid] += 1
-
-    # If the number of non-empty voxels exceeds max allowed, use random sampling.
-    if num_points.nonzero()[0].shape[0] > max_voxels:
-        # Prioratize voxels with more points
-        idx = np.argsort(num_points)[::-1] # Sort ids: prioritize voxels with more points
-        voxels = voxels[idx[0:max_voxels]]
-        voxels_gt = voxels_gt[idx[0:max_voxels]]
-        voxels_c3d = voxels_c3d[idx[0:max_voxels]]
-        coors = coors[idx[0:max_voxels]]
-
-        # Update point numbers after resampling
-        num_points = num_points[idx[0:max_voxels]]
-    else:
-        idx = num_points.nonzero()[0]
-        inv_idx = np.nonzero(num_points == 0)[0]
-
-        # Zero padding needed
-        pd = max_voxels - idx.shape[0]
-        idx = np.append(idx, inv_idx[:pd])
-
-        voxels = voxels[np.sort(idx)]
-        voxels_gt = voxels_gt[np.sort(idx)]
-        voxels_c3d = voxels_c3d[np.sort(idx)]
-        coors = coors[np.sort(idx)]
-
-        # Update point numbers after resampling
-        num_points = num_points[np.sort(idx)]
-
-    # Duplicate points instead of zero-padding
-    mask = (num_points < max_num_points) & (num_points != 0)
-    mask = mask.nonzero()[0]
-    for i in mask:
-        d = max_num_points - num_points[i]
-        voxels[i,num_points[i]:max_num_points] = np.repeat(np.expand_dims(voxels[i,num_points[i]-1], axis=0), d).reshape(-1,d).T
-        voxels[i,num_points[i]:max_num_points,3:] = -1 # -1 class to ignore duplicated points at loss and IoU level
-
-    # Final shape: Voxel x [xyz, sem2d, sem3d],
-    #                      [xyz, sem2d, sem3d],
-    #                      [xyz, sem2d, sem3d]
-
-    return voxels, voxels_gt, coors, voxels_c3d, num_points
-
 class PointLoader(Dataset):
     def __init__(self, dataset, data, voxel_size, max_num_points, max_voxels, input_size,\
-                 num_classes, pc_range, target_grid_size, gt_map, sem_map, offline=False):
+                 num_classes, pc_range, gt_map, sem_map, device, offline=False):
 
         infos = []
         with open(data, 'rb') as f:
@@ -160,6 +91,7 @@ class PointLoader(Dataset):
 
         self.offline = offline
         if not self.offline:
+            self.device = device
             self.voxel_size = np.array(voxel_size)
             self.max_num_points = max_num_points
             self.max_voxels = max_voxels
@@ -170,24 +102,13 @@ class PointLoader(Dataset):
             self.sem_map = sem_map
             self.dataset = dataset
 
-            # Voxels variables
-            self.minxyz = np.array([self.pc_range[0], self.pc_range[2], self.pc_range[4]]).astype(int)
-            self.grid_size_x = np.floor((self.pc_range[1] - self.pc_range[0]) / self.voxel_size[0]).astype(int)
-            self.grid_size_y = np.floor((self.pc_range[3] - self.pc_range[2]) / self.voxel_size[1]).astype(int)
-            self.grid_size_z = np.floor((self.pc_range[5] - self.pc_range[4]) / self.voxel_size[2]).astype(int)
-            self.pc_grid_size = np.array([self.grid_size_x, self.grid_size_y, self.grid_size_z]).astype(int)
-
-            self.target_grid_size = np.array(target_grid_size).astype(int)
-            self.min_grid_size = ((self.pc_grid_size - self.target_grid_size)/2).astype(int)
-            self.max_grid_size = (self.min_grid_size + self.target_grid_size).astype(int)
-            self.grid_size = self.pc_grid_size[0]*self.pc_grid_size[1]*self.pc_grid_size[2]
-
     def __len__(self):
         return np.shape(self.infos)[0]
 
     def __getitem__(self, idx):
 
         if not self.offline:
+            from spconv.pytorch.utils import PointToVoxel, gather_features_by_pc_voxel_id
             raw_cloud, gt, fov = datasets[self.dataset](idx, self.infos)
 
             sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
@@ -207,28 +128,33 @@ class PointLoader(Dataset):
             sem3d_onehot = np.zeros((classes3d.shape[0], self.num_classes))
             sem3d_onehot[np.arange(classes3d.shape[0]),classes3d] = scores3d
 
-            # Concat vectors
-            aux = np.concatenate((raw_cloud, sem2d_onehot), 1)
-            data = np.concatenate((aux, sem3d_onehot), 1)
-
             gt = np.vectorize(self.gt_map.__getitem__)(gt)
 
             gt_onehot = np.zeros((gt.shape[0], self.num_classes))
             gt_onehot[np.arange(gt.shape[0]),gt] = 1
 
-            # Filter data with voxels
-            input_data, input_gt, coors, voxels_c3d, num_voxels = self.generate_voxels(data, gt_onehot, classes3d)
+            # Concat vectors
+            aux = np.concatenate((raw_cloud, sem2d_onehot), 1)
+            data = np.concatenate((aux, sem3d_onehot), 1)
+            data = np.concatenate((data, gt_onehot), 1)
+            data = np.concatenate((data, classes3d[:, np.newaxis]), 1)
 
-            # Tensors
-            input_data = torch.from_numpy(input_data)
-            input_gt = torch.from_numpy(input_gt)
-            voxels_c3d = torch.from_numpy(voxels_c3d)
+            gen = PointToVoxel(
+                vsize_xyz=self.voxel_size,
+                coors_range_xyz=self.pc_range,
+                num_point_features=self.input_size+self.num_classes+1,
+                max_num_voxels=self.max_voxels,
+                max_num_points_per_voxel=self.max_num_points,
+                device=self.device)
+            voxels, coords, num_points, pc_voxel_id = gen.generate_voxel_with_id(torch.from_numpy(data).float().to(self.device), empty_mean=True)
+            coords = F.pad(coords, ((1,0)), mode='constant', value=0)
+
             misc = {
                 'seq': self.infos[idx]['sequence'],
                 'frame': self.infos[idx]['frame_idx']
             }
 
-            train = {'voxel_stats': num_voxels, 'c3d': voxels_c3d.float(), 'input_data': input_data.float(), 'gt': input_gt.float(), 'coors': coors, 'misc': misc}
+            train = {'raw_cloud': raw_cloud, 'pc_voxel_id': pc_voxel_id, 'c3d': voxels[:,:,-1], 'input_data': voxels[:,:,:self.input_size], 'gt': voxels[:,:,self.input_size:self.input_size+self.num_classes], 'coors': coords, 'misc': misc}
         else:
             import pickle
             import gzip
@@ -236,27 +162,3 @@ class PointLoader(Dataset):
                 train = pickle.load(pkl)
 
         return train
-
-    def generate_voxels(self, data, gt, c3d):
-
-        # Create an ordered voxelgrid.
-        # Each position holds the voxel ID.
-        ids = np.arange(start=0, stop=self.grid_size, step=1, dtype=np.int32)
-        voxelgrid = ids.reshape((self.pc_grid_size[2], self.pc_grid_size[0], self.pc_grid_size[1]))
-
-        # Get coords of each voxel
-        coors = np.argwhere(voxelgrid != -1)
-        # Add zero padding for batch dim
-        coors = np.pad(coors, ((0,0),(1,0)), mode='constant', constant_values=0).astype(np.int32)
-
-        voxels = np.zeros((self.grid_size, self.max_num_points, self.input_size), dtype=np.float32)
-        voxels_c3d = np.zeros((self.grid_size, self.max_num_points), dtype=np.float32)
-        voxels_gt = np.zeros((self.grid_size, self.max_num_points, self.num_classes), dtype=np.float32)
-        num_points = np.zeros(self.grid_size, dtype=np.int32)
-
-        # Call voxel generation with numba
-        input_data, input_gt, coors, c3d_results, num_voxels = generate_voxels_numba(voxels_c3d, c3d, data, voxelgrid, voxels, voxels_gt,\
-                                                     num_points, gt, self.min_grid_size, self.max_grid_size, self.minxyz,\
-                                                     self.max_voxels, self.max_num_points, self.voxel_size, coors)
-
-        return input_data, input_gt, coors, c3d_results, num_voxels
