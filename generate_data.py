@@ -32,6 +32,7 @@ class PandasetDataset():
                      'cloud': os.path.join(self.cfg['paths']['source'], seq, 'lidar', ("{:02d}.pkl.gz".format(idx))),
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'camera', c, ("{:02d}.png".format(idx))) for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
+                     'sem2d_scores': os.path.join(self.cfg['paths']['sem2d_scores'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:02d}.bin".format(seq, idx))),
                      'pickle': os.path.join(self.cfg['paths']['pickle'], ("{}_{:02d}.pkl.gz".format(seq, idx))),
                      'gt': os.path.join(self.cfg['paths']['source'], seq, 'annotations/semseg', ("{:02d}.pkl.gz".format(idx)))
@@ -74,6 +75,7 @@ class CarlaDataset():
                      'cloud': os.path.join(self.cfg['paths']['source'], 'cloud', seq, f'{self.frames[seq][idx][0]}.bin'),
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'], seq, c, f'{self.frames[seq][idx][1]}.png') for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{}.bin".format(seq, idx))),
+                     'sem2d_scores': os.path.join(self.cfg['paths']['sem2d_scores'], ("{}_{}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], seq, f'{idx}.bin'),
                      'pickle': os.path.join(self.cfg['paths']['pickle'], ("{}_{}.pkl.gz".format(seq, idx))),
                     } for idx in range(num_samples)]
@@ -107,6 +109,7 @@ class KittiDataset():
                      'cloud': os.path.join(self.cfg['paths']['source'], seq, 'velodyne', ("{:06d}.bin".format(idx))),
                      'sem_image': [os.path.join(self.cfg['paths']['sem_images'],seq, 'image_2', ("{:06d}.png".format(idx))) for c in self.cams],
                      'sem2d': os.path.join(self.cfg['paths']['sem2d'], ("{}_{:06d}.bin".format(seq, idx))),
+                     'sem2d_scores': os.path.join(self.cfg['paths']['sem2d_scores'], ("{}_{:06d}.bin".format(seq, idx))),
                      'sem3d': os.path.join(self.cfg['paths']['sem3d'], ("{}_{:06d}.bin".format(seq, idx))),
                      'pickle': os.path.join(self.cfg['paths']['pickle'], ("{}_{:06d}.pkl.gz".format(seq, idx))),
                      'gt': os.path.join(self.cfg['paths']['source'], seq, 'labels', ("{:06d}.label".format(idx)))

@@ -51,7 +51,7 @@ def main(args):
             elif dataset == 'carla':
                 img = np.zeros((720, 1280, 3), np.uint8)
             elif dataset == 'kitti':
-                dir = img_dir + '/' + str(seq_idx) + '/image_2/' + f.zfill(6) + '.png'
+                dir = img_dir + '/' + str(seq_idx) + '/image_2/' + f + '.png'
                 img = cv.imread(dir)
 
             if dataset == 'pandaset':
@@ -86,7 +86,7 @@ def main(args):
                 points, fov_flag = video_utils.pc_in_image_fov(points, cam_points, img.shape)
 
             if i == 0:
-                bev, points_id = video_utils.birds_eye_point_cloud(cloud_lidar,side_range=(pc_range[2], pc_range[3]),fwd_range=(pc_range[0], pc_range[1]), res=0.1, min_height=pc_range[4], max_height=pc_range[5])
+                bev, points_id = video_utils.birds_eye_point_cloud(cloud_lidar,side_range=(pc_range[1], pc_range[4]),fwd_range=(pc_range[0], pc_range[3]), res=0.1, min_height=pc_range[2], max_height=pc_range[5])
                 bev = cv.bitwise_not(bev)
                 # TODO: bev still thinks its BGR
                 bev = cv.cvtColor(bev, cv.COLOR_GRAY2RGB)

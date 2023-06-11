@@ -1,13 +1,14 @@
-import torch
 from torch import nn
-from .lovasz_losses import lovasz_softmax
 
-def build_loss(att_mask_2d, att_mask_3d, gt2d, gt3d):
+def build_loss(att_mask, gt, unified_mask):
 
-    # Leave xyz out
-    bce = nn.BCELoss()
+    if unified_mask:
+        # BCE loss
+        bce = nn.BCELoss()
+        loss = bce(att_mask, gt)
+    else:
+        # CrossEntropy loss
+        cross = nn.CrossEntropyLoss()
+        loss = cross(att_mask, gt.long())
 
-    bce_loss1 = bce(att_mask_3d, gt3d)
-    bce_loss2 = bce(att_mask_2d, gt2d)
-
-    return bce_loss1 , bce_loss2
+    return loss

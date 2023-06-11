@@ -45,7 +45,7 @@ def project_points(infos, color_map, dataset):
 
         color_labels = np.zeros((pc.shape[0], 3), dtype=np.uint8)
         id_labels = np.zeros((pc.shape[0]), dtype=np.uint8)
-        score_labels = np.zeros((pc.shape[0]), dtype=np.float32)
+        score_labels = np.zeros((pc.shape[0], 19), dtype=np.float32)
         # Get semantic images from each camera
         for id, im in enumerate(info['sem_image']):
             # 1. Project pc into image
@@ -71,9 +71,8 @@ def project_points(infos, color_map, dataset):
 
 
             # Extra A channel contains scores
-            sems = np.array(Image.open(im).convert('RGBA'))
-            img = sems[:, :, :3]
-            scores = sems[:, :, 3]
+            img = np.array(Image.open(im).convert('RGB'))
+            scores = np.fromfile(info['sem2d_scores'], dtype=np.float32).reshape(img.shape[0], img.shape[1], 19)
 
             # 2. Filter cloud with image boundaries
             pc_fov, fov_idx = pc_in_image_fov(pc_img, pc_cam, img.shape)
@@ -83,5 +82,6 @@ def project_points(infos, color_map, dataset):
 
         # Transform color values into class ids and save them in bin files for each seq_frame
         id_labels = np.vectorize(get_value_with_key, signature='(n)->()')(color_labels)
-        sem2d = np.vstack((id_labels, score_labels)).swapaxes(0,1)
+        id_labels = np.expand_dims(id_labels, axis=1)
+        sem2d = np.concatenate((id_labels, score_labels), axis=1)
         sem2d.astype(np.float32).tofile(info['sem2d'])

@@ -83,7 +83,7 @@ datasets = {
 
 class PointLoader(Dataset):
     def __init__(self, dataset, data, voxel_size, max_num_points, max_voxels, input_size,\
-                 num_classes, pc_range, gt_map, sem_map, device, offline=False):
+                 num_classes, pc_range, gt_map, sem_map, scores2d_order, scores2d_ignore, merged_classes, device, offline=False):
 
         infos = []
         with open(data, 'rb') as f:
@@ -101,6 +101,9 @@ class PointLoader(Dataset):
             self.gt_map = gt_map
             self.sem_map = sem_map
             self.dataset = dataset
+            self.scores2d_order = scores2d_order
+            self.scores2d_ignore = scores2d_ignore
+            self.merged_classes = merged_classes
 
     def __len__(self):
         return np.shape(self.infos)[0]
@@ -111,22 +114,38 @@ class PointLoader(Dataset):
             from spconv.pytorch.utils import PointToVoxel, gather_features_by_pc_voxel_id
             raw_cloud, gt, fov = datasets[self.dataset](idx, self.infos)
 
-            sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,2)
+            sem2d = np.fromfile(self.infos[idx]['sem2d'], dtype=np.float32).reshape(-1,20)
             sem2d = sem2d[fov]
-            scores2d = sem2d[:,1]
+            scores2d = sem2d[:,1:]
             classes2d = sem2d[:,0].astype(np.uint8)
 
-            sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 2)
+            ### Filter 2D scores
+            # Add extra score for the ignored classes
+            ignore_class = np.zeros((scores2d.shape[0], 1))
+            scores2d = np.concatenate((ignore_class, scores2d), axis=1)
+            # Get max score from ignored classes
+            ignored = np.max(np.take(scores2d, self.scores2d_ignore, axis=1), axis=1)
+            # Assign max score from the ignored classes
+            scores2d[np.arange(classes2d.shape[0]), 0] = ignored
+            # Use the max score for the merged classes
+            for m in self.merged_classes:
+                merged_score = np.max(np.take(scores2d, m, axis=1), axis=1)
+                scores2d[np.arange(classes2d.shape[0]), m[0]] = merged_score
+            # Reorder scores to fit our whitelist
+            scores2d = np.take(scores2d, self.scores2d_order, axis=1)
+            ###
+
+            sem3d = np.fromfile(self.infos[idx]['sem3d'], dtype=np.float32).reshape(-1, 15)
             sem3d = sem3d[fov]
-            scores3d = sem3d[:,1]
+            scores3d = sem3d[:,1:]
             classes3d = sem3d[:,0]
             classes3d = np.vectorize(self.sem_map.__getitem__)(classes3d)
 
             # Onehot with scores
             sem2d_onehot = np.zeros((classes2d.shape[0], self.num_classes))
-            sem2d_onehot[np.arange(classes2d.shape[0]),classes2d] = scores2d
+            sem2d_onehot[np.arange(classes2d.shape[0])] = scores2d
             sem3d_onehot = np.zeros((classes3d.shape[0], self.num_classes))
-            sem3d_onehot[np.arange(classes3d.shape[0]),classes3d] = scores3d
+            sem3d_onehot[np.arange(classes3d.shape[0])] = scores3d
 
             gt = np.vectorize(self.gt_map.__getitem__)(gt)
 
@@ -146,7 +165,7 @@ class PointLoader(Dataset):
                 max_num_voxels=self.max_voxels,
                 max_num_points_per_voxel=self.max_num_points,
                 device=self.device)
-            voxels, coords, num_points, pc_voxel_id = gen.generate_voxel_with_id(torch.from_numpy(data).float().to(self.device), empty_mean=True)
+            voxels, coords, num_points, pc_voxel_id = gen.generate_voxel_with_id(torch.from_numpy(data).float().to(self.device), empty_mean=False)
             coords = F.pad(coords, ((1,0)), mode='constant', value=0)
 
             misc = {
@@ -154,7 +173,10 @@ class PointLoader(Dataset):
                 'frame': self.infos[idx]['frame_idx']
             }
 
-            train = {'raw_cloud': raw_cloud, 'pc_voxel_id': pc_voxel_id, 'c3d': voxels[:,:,-1], 'input_data': voxels[:,:,:self.input_size], 'gt': voxels[:,:,self.input_size:self.input_size+self.num_classes], 'coors': coords, 'misc': misc}
+            input_data = self.repeat_points(voxels[:,:,:31].clone().cpu().numpy(), num_points.cpu().numpy())
+            input_data = self.apply_norm(input_data.clone())
+
+            train = {'c3d': classes3d, 'gt': gt_onehot,'sem3d': sem3d_onehot, 'sem2d': sem2d_onehot, 'num_points': num_points, 'raw_cloud': raw_cloud, 'raw_vx': voxels[:,:,:3], 'pc_voxel_id': pc_voxel_id, 'input_data': input_data, 'coors': coords, 'misc': misc}
         else:
             import pickle
             import gzip
@@ -162,3 +184,28 @@ class PointLoader(Dataset):
                 train = pickle.load(pkl)
 
         return train
+
+    def apply_norm(self, data):
+        min_x = self.pc_range[0]
+        min_y = self.pc_range[1]
+        min_z = self.pc_range[2]
+        max_x = self.pc_range[3]
+        max_y = self.pc_range[4]
+        max_z = self.pc_range[5]
+
+        data[:,:,0] = 2*((data[:,:,0]-min_x)/(max_x-min_x))-1 # [-1,1]
+        data[:,:,1] = 2*((data[:,:,1]-min_y)/(max_y-min_y))-1 # [-1,1]
+        data[:,:,2] = 2*((data[:,:,2]-min_z)/(max_z-min_z))-1 # [-1,1]
+
+        return data
+
+    def repeat_points(self, data, num_points):
+        rng = np.random.default_rng()
+        aux = np.repeat(num_points[:, np.newaxis], self.max_num_points, axis=1)
+        ids = rng.integers(low=0, high=aux, size=(data.shape[0], self.max_num_points))
+
+        for i, id in enumerate(ids):
+            d = self.max_num_points - num_points[i]
+            data[i, num_points[i]:self.max_num_points] = data[i,id[:d]]
+
+        return torch.from_numpy(data).to(self.device)

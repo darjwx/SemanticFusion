@@ -1,14 +1,15 @@
 training_params:
   name: 'kitti'
-  lr: 0.0001
-  epochs: 15
+  lr: 0.001
+  epochs: 50
   batch_size: 1
   voxel_size: [0.2, 0.2, 0.2] #x, y, z
   max_num_points: 5
   max_voxels: 15000
   input_size: 31 #xyz + num classes
   num_classes: 14
-  pc_range: [0, -70, -3, 80, 70, 3] #xmin, ymin, zmin, xmax, ymax, zmax
+  unified_mask: False
+  pc_range: [0, -30, -3, 50, 30, 3] #xmin, ymin, zmin, xmax, ymax, zmax
   val_rate: 1 #epochs
   offline_loader: True
   train_metrics: True # Whether to upload train iou, loss and acc metrics to tb
@@ -23,6 +24,7 @@ paths:
   source: 'datasets/kitti/odometry/dataset/sequences'
   sem_images: 'datasets/kitti/semantic_images/sequences'
   sem2d: 'datasets/kitti/sem2d'
+  sem2d_scores: 'datasets/kitti/sem2d_scores'
   sem3d: 'datasets/kitti/sem3d'
   pickle: 'datasets/kitti/offline_data'
   data_train: 'datasets/kitti/out/kitti_infos_train.pkl'
@@ -106,3 +108,8 @@ color_map:
   '[0,80,100]': 0 # Train
   '[0,0,230]': 3 # Motorcycle
   '[119,11,32]': 2 # Bicycle
+
+scores2d_filters:
+  scores2d_order: [0, 14, 19, 18, 15, 12, 13, 1, 2, 3, 5, 9, 6, 7]
+  scores2d_ignore: [4, 10, 11, 16, 17]
+  merged_classes: [[7, 8]]

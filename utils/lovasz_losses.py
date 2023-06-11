@@ -219,9 +219,9 @@ def flatten_probas(probas, labels, idx=None, ignore=None):
     #    probas = probas.view(B, 1, H, W)
     #B, C, H, W = probas.size()
     #probas = probas.permute(0, 2, 3, 1).contiguous().view(-1, C)  # B * H * W, C = P, C
-    B, V, P, C = probas.size()
-    probas = probas.view(-1, C)
-    labels = labels.view(-1)
+    #B, V, P, C = probas.size()
+    # probas = probas.view(-1, C)
+    # labels = labels.view(-1)
 
     if idx is not None:
         probas = probas[idx.view(-1)]

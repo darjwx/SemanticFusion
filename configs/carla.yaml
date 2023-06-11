@@ -8,6 +8,7 @@ training_params:
   max_voxels: 30000
   input_size: 19 #xyz + num classes
   num_classes: 8
+  unified_mask: False
   pc_range: [-80, 80, -80, 80, -4, 3] #xmin, xmax, ymin, ymax, zmin, zmax
   sparse_shape: [800, 500, 35]
   val_rate: 1 #epochs
@@ -22,6 +23,7 @@ paths:
   source: 'datasets/carla/'
   sem_images: 'datasets/carla/sem_images'
   sem2d: 'datasets/carla/sem2d'
+  sem2d_scores: 'datasets/carla/sem2d_scores'
   sem3d: 'datasets/carla/sem3d'
   pickle: 'datasets/carla/offline_data'
   data_train: 'datasets/carla/out/carla_infos_train.pkl'

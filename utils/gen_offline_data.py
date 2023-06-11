@@ -22,9 +22,14 @@ def gen_data(cfg):
     sem_map = cfg['sem_map']
     out = cfg['paths']['pickle']
 
+    # 2D score filters
+    scores2d_order = cfg['scores2d_filters']['scores2d_order']
+    scores2d_ignore = cfg['scores2d_filters']['scores2d_ignore']
+    merged_classes = cfg['scores2d_filters']['merged_classes']
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map, device)
-    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map, device)
+    dataset_train = PointLoader(name, data_train, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map, scores2d_order, scores2d_ignore, merged_classes, device, False)
+    dataset_val = PointLoader(name, data_val, voxel_size, max_num_points, max_voxels, input_size, num_classes, pc_range, gt_map, sem_map, scores2d_order, scores2d_ignore, merged_classes, device, False)
 
     trainloader = DataLoader(dataset_train, batch_size, shuffle=False, num_workers=0)
     valloader = DataLoader(dataset_val, batch_size, shuffle=False, num_workers=0)
